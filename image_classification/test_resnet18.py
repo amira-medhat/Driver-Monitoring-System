@@ -1,17 +1,31 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, models, transforms
-from PIL import Image
-import os
-from matplotlib import pyplot as plt
+'''
+1. Imports
+'''
+
+import torch   #PyTorch library for deep learning.
+import torch.nn as nn       #Neural network module for building models.
+import torch.optim as optim     #Optimizers for training models (e.g., SGD, Adam).
+import matplotlib.pyplot as plt      #For visualizing images and results.
+from torch.utils.data import DataLoader, Dataset    #For working with datasets and dataloaders.
+from torchvision import datasets, models, transforms    #Pre-trained models (ResNet18), and image preprocessing utilities.
+from PIL import Image   #For working with image files.
+import os   #For file system operations (e.g., listing files in directories).
+#from matplotlib import pyplot as plt
+
+
 
 if __name__ == "__main__":
 
-    class CustomTestDataset(Dataset):
-        def __init__(self, image_dir, transform=None):
+    '''
+    2. Custom Dataset Class (CustomTestDataset)
+    '''
+    class CustomTestDataset(Dataset):  
+        '''
+        This class is designed to load images from a directory for inference.
+        Unlike training datasets, test datasets in this case have no subdirectories for classes.
+        This custom class simplifies loading and preprocessing test images.
+        '''
+        def __init__(self, image_dir, transform=None): 
             """
             Custom Dataset for test data with no class subdirectories.
             Args:
@@ -25,7 +39,7 @@ if __name__ == "__main__":
         def __len__(self):
             return len(self.image_files)  # Return the number of images
 
-        def __getitem__(self, idx):
+        def __getitem__(self, idx):     #Loads an image at a specific index, applies transformations (e.g., resizing, normalization), and returns it.
             img_name = os.path.join(self.image_dir, self.image_files[idx])
             image = Image.open(img_name)  # Open the image
             if self.transform:
@@ -34,15 +48,23 @@ if __name__ == "__main__":
                 )  # Apply any transformations (e.g., resizing, normalization)
             return image
 
+
+    '''
+    3. Image Preprocessing
+    '''
     # Define the transformations: Resize, Convert to Tensor, and Normalize
     transform = transforms.Compose(
+        '''
+        These transformations ensure the images are consistent with the format expected by ResNet18,
+        which is pre-trained on ImageNet.
+        '''
         [
             transforms.Resize(224),  # Resize image to (224, 224)
-            transforms.CenterCrop(224),  # Crop the center of the image
-            transforms.ToTensor(),  # Convert image to tensor
+            transforms.CenterCrop(224),  # Crop the center of the image of size (224, 224).
+            transforms.ToTensor(),  #Converts the image to a PyTorch tensor (shape [C, H, W]).
             transforms.Normalize(
                 mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-            ),  # Normalize based on ImageNet stats
+            ),  # Normalize based on ImageNet statistics(mean ,std)
         ]
     )
     # transform = transforms.Compose(
@@ -56,7 +78,11 @@ if __name__ == "__main__":
     #     ]
     # )
 
-    # Define paths to your dataset
+
+    '''
+   4. Loading Datasets
+    '''
+    # Define paths to your dataset(train set / test set)
     train_dir = "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\imgs\\train"
     test_dir = "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\imgs\\test"
 
@@ -70,6 +96,10 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
 
+
+    '''
+    5. Model Customization
+    '''
     # Load ResNet18 with pre-trained weights
     model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
 
@@ -77,22 +107,27 @@ if __name__ == "__main__":
     num_classes = len(train_dataset.classes)  # Number of classes in your dataset
     model.fc = nn.Linear(
         model.fc.in_features, num_classes
-    )  # Change the last fully connected layer
+    )  # The final fully connected layer (model.fc) is replaced with a new layer to match the number of classes in the training dataset.
 
-    # Freeze all layers except the final layer (fc)
+    # Freeze all layers except the final layer (fc) to prevent updates during training. 
+    # This reduces training time and focuses on fine-tuning the last layer.
     for param in model.parameters():
-        param.requires_grad = False  # Freeze all layers
+        param.requires_grad = False  # Freeze all layers.
 
     # Unfreeze the final layer to fine-tune it
     for param in model.fc.parameters():
         param.requires_grad = True
 
+
+    '''
+    6. Training the Model
+    '''
     # Move the model to GPU if available
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
     # Define the loss function
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss()   #suitable for multi-class classification.
 
     # Use Adam optimizer (you can adjust learning rate)
     # optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -134,4 +169,4 @@ if __name__ == "__main__":
             f"Epoch {epoch + 1}/{num_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_acc:.2f}%"
         )
 
-    torch.save(model.state_dict(), "fine_tuned_resnet18.pth")
+    torch.save(model.state_dict(), "fine_tuned_resnet18.pth")   #The model's state is saved to a file (fine_tuned_resnet18.pth) after training.
