@@ -57,11 +57,20 @@ if __name__ == "__main__":
     ]
 
     # Load the model architecture
+    '''
+    Load Model Architecture:
+    A ResNet18 architecture is loaded.
+    The fully connected layer (model.fc) is replaced to output predictions for the 10 classes (matching the dataset).
+    '''
     model = models.resnet18(weights=None)
     num_classes = len(class_names)
     model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
 
     # Load the saved model weights
+    '''
+    Load Pre-trained Weights:
+    The model's weights are loaded from the file fine_tuned_resnet18.pth, which was saved after fine-tuning on the dataset.
+    '''
     model.load_state_dict(torch.load("fine_tuned_resnet18.pth"))
     model.eval()  # Set model to evaluation mode
 
@@ -70,6 +79,9 @@ if __name__ == "__main__":
     model = model.to(device)
 
     # Inference
+    '''
+    Test images are normalized for model input, but for visualization, normalization is reversed using inv_transform.
+    '''
     inv_transform = transforms.Compose(
         [
             transforms.Normalize(
@@ -84,6 +96,15 @@ if __name__ == "__main__":
             images = images.to(device)
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
+            '''
+            outputs(row x col 'image x class') =
+                tensor([[2.5, 1.0, -0.5, 3.0],  # Image 1 logits
+                        [0.8, 2.2, 0.1, -1.5],  # Image 2 logits
+            
+            outputs: The tensor containing logits.
+            1: This specifies the dimension along which to compute the maximum.
+            1 means find the maximum across the columns (i.e., across the classes for each image).
+            '''
 
             for i in range(images.size(0)):
                 # Revert normalization for visualization

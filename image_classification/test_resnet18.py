@@ -87,9 +87,17 @@ if __name__ == "__main__":
     test_dir = "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\imgs\\test"
 
     # Load the dataset
+    '''
+    When your dataset is organized with class labels in separate subdirectories.
+    Ideal for image classification problems where the class name is derived from the folder name.
+    '''
     train_dataset = datasets.ImageFolder(train_dir, transform=transform)
 
     # Create the dataset for test data
+    '''
+    When the dataset doesn't have class subdirectories, such as a test set where you only have images without predefined class labels.
+    When you need to handle the data in a custom way, like loading images from a CSV file, applying custom transformations, or working with images in a non-standard format.
+    '''
     test_dataset = CustomTestDataset(test_dir, transform=transform)
 
     # Create DataLoader to load batches of images
