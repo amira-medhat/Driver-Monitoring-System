@@ -4,6 +4,7 @@ from torchvision import models, transforms
 from PIL import Image
 import os
 
+# EL REPO SHAGHAAAAAAAL!!!!
 
 class CustomTestDataset(torch.utils.data.Dataset):
     def __init__(self, image_dir, transform=None):
