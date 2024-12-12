@@ -24,7 +24,7 @@ from torchvision import (
     transforms,
 )
 from PIL import Image  # For working with image files.
-from useful_functions import (
+from functions import (
     plot_images,
     evaluate,
     fit_model,
@@ -79,9 +79,10 @@ classes = {
     7: "Reaching behind",
     8: "Hair and makeup",
     9: "Talking to passenger(s)",
+    10: "Hands off wheel",
 }
 train_data = datasets.ImageFolder(root=train_dir)
-labelss = labels.classname.map(train_data.class_to_idx)  # men dah
+
 RATIO = 0.8
 
 n_train_examples = int(len(train_data) * RATIO)
@@ -154,7 +155,7 @@ for name, param in model.named_parameters():
     if "bn" not in name:
         param.requires_grad = False
 
-model.fc = nn.Linear(model.fc.in_features, 10)
+model.fc = nn.Linear(model.fc.in_features, 11)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -186,5 +187,5 @@ train_stats_ResNet18 = fit_model(
 plot_training_statistics(train_stats_ResNet18, model_name)
 test_loss, test_acc = evaluate(model, test_loader, criterion, device)
 print(f"Test Loss: {test_loss:.4f}, Test Accuracy: {test_acc:.2f}%")
-PATH = "resnet18_github.pth"
+PATH = "fine_tuned_resnet18_with_how.pth"
 torch.save(model.state_dict(), PATH)

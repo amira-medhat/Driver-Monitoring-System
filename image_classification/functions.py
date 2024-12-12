@@ -1,45 +1,18 @@
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
-import matplotlib.pyplot as plt
-import copy
-import time
-from math import exp
-import random
-import os
-from PIL import Image
-import seaborn as sns
-from IPython.display import display
-
-import torch
-import torchvision
-from torch import nn, optim
-from torchvision import models
-from torch.functional import F
-from torchvision import datasets, transforms
-from torch.autograd import Variable
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
-from torch.autograd import Variable
-
-sns.set_style("whitegrid")
-plt.rcParams["lines.linewidth"] = 2
-plt.rcParams["font.sans-serif"] = "Arial"
-plt.rcParams["text.color"] = "black"
-plt.rcParams["axes.labelcolor"] = "black"
-plt.rcParams["xtick.color"] = "black"
-plt.rcParams["ytick.color"] = "black"
-plt.rcParams["font.size"] = 12
-SEED = 47
-
-
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
-torch.backends.cudnn.deterministic = True
+import torch  # PyTorch library for deep learning.
+import torch.nn as nn  # Neural network module for building models.
+import torch.optim as optim  # Optimizers for training models (e.g., SGD, Adam).
+import matplotlib.pyplot as plt  # For visualizing images and results.
+from torch.utils.data import (
+    DataLoader,
+    Dataset,
+)  # For working with datasets and dataloaders.
+from torchvision import (
+    datasets,
+    models,
+    transforms,
+)  # Pre-trained models (ResNet18), and image preprocessing utilities.
+from PIL import Image  # For working with image files.
+import os  # For file system operations (e.g., listing files in directories).
 
 
 def plot_images(images, n_cols=5):
@@ -92,9 +65,11 @@ def fit_model(
     loss_criterion,
     device,
     epochs,
+    checkpoint_path="model_checkpoint.pth",
 ):
     """
     Train and validate the model for a given number of epochs, while tracking performance statistics.
+    Save checkpoint after each epoch to allow resuming training if interrupted.
 
     :param model: The PyTorch model.
     :param model_name: The name of the model (for tracking).
@@ -104,9 +79,11 @@ def fit_model(
     :param loss_criterion: The loss function (e.g., CrossEntropyLoss).
     :param device: Device to run the model on ('cpu' or 'cuda').
     :param epochs: Number of epochs to train the model.
+    :param checkpoint_path: Path to save checkpoint file.
 
     :return: Dictionary containing training and validation loss/accuracy statistics for each epoch.
     """
+    # Initialize training stats
     train_stats = {
         "train_loss": [],
         "train_accuracy": [],
@@ -114,7 +91,21 @@ def fit_model(
         "val_accuracy": [],
     }
 
-    for epoch in range(epochs):
+    # Try to load checkpoint if it exists
+    start_epoch = 0
+    if (
+        torch.cuda.is_available()
+        and checkpoint_path
+        and os.path.isfile(checkpoint_path)
+    ):
+        checkpoint = torch.load(checkpoint_path)
+        model.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        start_epoch = checkpoint["epoch"] + 1
+        train_stats = checkpoint["train_stats"]
+        print(f"Resuming training from epoch {start_epoch + 1}...")
+
+    for epoch in range(start_epoch, epochs):
         model.train()  # Set model to training mode
         running_train_loss = 0.0
         correct_train = 0
@@ -174,13 +165,23 @@ def fit_model(
         train_stats["val_accuracy"].append(val_accuracy)
 
         # Print statistics for each epoch
-        print(f"Epoch [{epoch+1}/{epochs}]")
+        print(f"Epoch [{epoch + 1}/{epochs}]")
         print(
             f"Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.2f}%"
         )
         print(
             f"Validation Loss: {avg_val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%"
         )
+
+        # Save checkpoint after each epoch
+        checkpoint = {
+            "epoch": epoch,
+            "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "train_stats": train_stats,
+        }
+        torch.save(checkpoint, checkpoint_path)
+        print(f"Checkpoint saved at epoch {epoch + 1}")
 
     return train_stats
 
@@ -244,134 +245,3 @@ def evaluate(model, test_iterator, loss_criterion, device):
     test_loss /= len(test_iterator)
     test_acc = (correct / total) * 100
     return test_loss, test_acc
-
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_dir = "C:\\Users\\Amira\\Driver-Monitoring-System"
-labels = pd.read_csv(
-    "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\driver_imgs_list.csv"
-)
-display(labels.head())
-
-train_img_dir = "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\imgs\\train"
-test_img_dir = "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\imgs\\test"
-
-num_training_examples = 0
-for fol in os.listdir(train_img_dir):
-    num_training_examples += len(os.listdir(os.path.join(train_img_dir, fol)))
-
-assert num_training_examples == len(labels)
-
-classes = {
-    0: "Safe driving",
-    1: "Texting(right hand)",
-    2: "Talking on the phone (right hand)",
-    3: "Texting (left hand)",
-    4: "Talking on the phone (left hand)",
-    5: "Operating the radio",
-    6: "Drinking",
-    7: "Reaching behind",
-    8: "Hair and makeup",
-    9: "Talking to passenger(s)",
-}
-
-train_data = torchvision.datasets.ImageFolder(root=train_img_dir)
-labelss = labels.classname.map(train_data.class_to_idx)
-N_IMAGES = 20
-images = [
-    (image, classes[label])
-    for image, label in [
-        train_data[i] for i in random.sample(range(len(train_data)), N_IMAGES)
-    ]
-]
-plot_images(images)
-
-RATIO = 0.8
-
-n_train_examples = int(len(train_data) * RATIO)
-n_Test_Valid_examples = len(train_data) - n_train_examples
-n_valid_examples = int(n_Test_Valid_examples / 2)
-n_Test_examples = n_Test_Valid_examples - n_valid_examples
-
-train_data, Test_valid_data = torch.utils.data.random_split(
-    train_data, [n_train_examples, n_Test_Valid_examples]
-)
-
-valid_data, test_data = torch.utils.data.random_split(
-    Test_valid_data, [n_valid_examples, n_Test_examples]
-)
-
-
-normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-train_transforms = transforms.Compose(
-    [
-        transforms.Resize(224),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ]
-)
-validation_transforms = transforms.Compose(
-    [
-        transforms.Resize(224),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ]
-)
-
-test_transforms = transforms.Compose(
-    [
-        transforms.Resize(224),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ]
-)
-
-train_data.dataset.transform = train_transforms
-valid_data = copy.deepcopy(valid_data)
-test_data = copy.deepcopy(test_data)
-valid_data.dataset.transform = validation_transforms
-
-print(f"Number of Training examples: {len(train_data)}")
-print(f"Number of Validation examples: {len(valid_data)}")
-print(f"Number of Test examples: {len(test_data)}")
-
-BATCH_SIZE = 256
-
-train_iterator = DataLoader(train_data, shuffle=True, batch_size=BATCH_SIZE)
-
-valid_iterator = DataLoader(valid_data, batch_size=BATCH_SIZE * 2)
-
-test_iterator = DataLoader(test_data, batch_size=BATCH_SIZE * 2)
-
-model = models.resnet18(pretrained=True)
-
-for name, param in model.named_parameters():
-    if "bn" not in name:
-        param.requires_grad = False
-
-model.fc = nn.Linear(model.fc.in_features, 10)
-
-model = model.to(device)
-loss_criterion = nn.CrossEntropyLoss().to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-2)
-epochs = 20
-model_name = "ResNet18"
-print(f"The model has {count_parameters(model):,} trainable parameters")
-train_stats_ResNet18 = fit_model(
-    model,
-    model_name,
-    train_iterator,
-    valid_iterator,
-    optimizer,
-    loss_criterion,
-    device,
-    epochs,
-)
-plot_training_statistics(train_stats_ResNet18, model_name)
-test_loss, test_acc = evaluate(model, test_iterator, loss_criterion, device)
-test_loss, test_acc
-PATH = "resnet18_github.pth"
-torch.save(model.state_dict(), PATH)
