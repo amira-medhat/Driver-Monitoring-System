@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Configuration
 CUSTOM_WEIGHTS_PATH = r"D:\GRAD_PROJECT\how\best.pt"  # Path to your trained weights file
-IMAGES_FOLDER = r"D:\GRAD_PROJECT\how\how_images_testing"  # Folder containing images for inference
+IMAGES_FOLDER = r"D:\GRAD_PROJECT\how\new_images_inference"  # Folder containing images for inference
 YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\how\yolov7"  # Path to YOLOv7 repository
 CONFIDENCE_THRESHOLD = 0.6  # Lowered for more detections
 
@@ -81,9 +81,16 @@ with torch.no_grad():
                 label = f"{'HandsOnWheel' if cls == 1 else 'HandsNotOnWheel'} {conf:.2f}"
                 color = (0, 255, 0) if cls == 1 else (255, 0, 0)
 
-                # Draw bounding box and label
+                # Draw bounding box
                 cv2.rectangle(original_image, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(original_image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+        # Calculate the position for the label at the bottom center of the image
+        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+        label_x = (original_image.shape[1] - label_size[0]) // 2  # Centered horizontally
+        label_y = original_image.shape[0] - 10  # Positioned near the bottom
+
+        # Draw the label in the lower middle part of the image
+        cv2.putText(original_image, label, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
         # Display the image with bounding boxes and labels
         cv2.imshow("Detection", original_image)
