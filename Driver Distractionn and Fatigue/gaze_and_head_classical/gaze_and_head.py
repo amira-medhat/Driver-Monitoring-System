@@ -1,3 +1,5 @@
+# created 28 jan 2025
+# author farah ahmed
 import cv2 
 import mediapipe as mp  
 import numpy as np  
