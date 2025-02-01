@@ -1,7 +1,7 @@
-import cv2  # OpenCV for video processing
-import mediapipe as mp  # Mediapipe for face mesh and landmark detection
-import numpy as np  # NumPy for mathematical calculations
-import time  # Time module for timers
+import cv2 
+import mediapipe as mp  
+import numpy as np  
+import time  
 
 # Initialize Mediapipe Face Mesh module
 mp_face_mesh = mp.solutions.face_mesh
