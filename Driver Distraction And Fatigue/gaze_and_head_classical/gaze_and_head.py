@@ -1,7 +1,7 @@
-import cv2 
-import mediapipe as mp  
-import numpy as np  
-import time  
+import cv2  # OpenCV for video processing
+import mediapipe as mp  # Mediapipe for face mesh and landmark detection
+import numpy as np  # NumPy for mathematical calculations
+import time  # Time module for timers
 
 # Initialize Mediapipe Face Mesh module
 mp_face_mesh = mp.solutions.face_mesh
@@ -27,9 +27,9 @@ head_alert_triggered = False  # Flag to indicate abnormal head movement
 head_abnormal_duration = 5  # Duration (in seconds) to trigger abnormal head movement alert
 
 # Thresholds for detecting abnormal head movements
-PITCH_THRESHOLD = 4  # Angle in degrees for abnormal pitch
-YAW_THRESHOLD = 15  # Angle in degrees for abnormal yaw
-ROLL_THRESHOLD = 15  # Angle in degrees for abnormal roll
+PITCH_THRESHOLD = 2  # Angle in degrees for abnormal pitch
+YAW_THRESHOLD = 10  # Angle in degrees for abnormal yaw
+ROLL_THRESHOLD = 10  # Angle in degrees for abnormal roll
 
 # Head Movement Functions
 def calculate_angles(landmarks, frame_width, frame_height):
@@ -52,9 +52,14 @@ def calculate_angles(landmarks, frame_width, frame_height):
     forehead = normalized_to_pixel(forehead, frame_width, frame_height)
 
     # Calculate pitch (vertical head angle) based on the difference between chin and nose tip
-    delta_y = chin[1] - nose_tip[1]
-    delta_x = chin[0] - nose_tip[0]
-    pitch = np.arctan2(delta_y, delta_x) * (180 / np.pi)  # Convert from radians to degrees
+   # delta_y = chin[1] - nose_tip[1]
+   # delta_x = chin[0] - nose_tip[0]
+   # pitch = np.arctan2(delta_y, delta_x) * (180 / np.pi)  # Convert from radians to degrees
+
+    # **Fixed Pitch Calculation** (Chin to Forehead)
+    delta_y = chin[1] - forehead[1]
+    distance_chin_forehead = np.linalg.norm(np.array(chin) - np.array(forehead))
+    pitch = np.arctan2(delta_y, distance_chin_forehead) * (180 / np.pi)
 
     # Calculate yaw (horizontal head angle) based on the eye positions
     delta_x_eye = right_eye_outer[0] - left_eye_outer[0]
