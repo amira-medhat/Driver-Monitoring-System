@@ -3,6 +3,7 @@ import mediapipe as mp  # Mediapipe for face mesh and landmark detection
 import numpy as np  # NumPy for mathematical calculations
 import time  # Time module for timers
 
+
 # Initialize Mediapipe Face Mesh module
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
@@ -12,7 +13,7 @@ mp_drawing = mp.solutions.drawing_utils  # Mediapipe utility to draw landmarks
 
 # Initialize timers and state variables
 start_time = time.time()  # Start timer to establish baseline for head movements
-threshold_time = 10  # Duration in seconds to establish a baseline
+threshold_time = 20  # Duration in seconds to establish a baseline
 baseline_pitch, baseline_yaw, baseline_roll = 0, 0, 0  # Initialize baseline angles for head movement
 baseline_data = []  # Store head movement angles for baseline calculation
 baseline_set = False  # Flag to indicate whether baseline is established
@@ -27,9 +28,25 @@ head_alert_triggered = False  # Flag to indicate abnormal head movement
 head_abnormal_duration = 5  # Duration (in seconds) to trigger abnormal head movement alert
 
 # Thresholds for detecting abnormal head movements
-PITCH_THRESHOLD = 2  # Angle in degrees for abnormal pitch
+PITCH_THRESHOLD = 10  # Angle in degrees for abnormal pitch
 YAW_THRESHOLD = 10  # Angle in degrees for abnormal yaw
 ROLL_THRESHOLD = 10  # Angle in degrees for abnormal roll
+
+
+def calculate_pitch(nose, chin):
+    """Compute the pitch angle using nose and chin landmarks."""
+    # Vector from nose to chin (3D)
+    vector = np.array([chin[0] - nose[0], chin[1] - nose[1], chin[2] - nose[2]])
+
+    # Compute pitch using atan2 (Preserves sign for up/down movement)
+    pitch_angle = np.degrees(np.arctan2(vector[1], np.linalg.norm([vector[0], vector[2]])))
+
+    # Adjust for backward movement
+    if chin[2] > nose[2]:  # If chin is deeper into the screen than the nose
+        pitch_angle *= -1   # Invert pitch to reflect backward movement correctly
+
+    return pitch_angle
+
 
 # Head Movement Functions
 def calculate_angles(landmarks, frame_width, frame_height):
@@ -50,16 +67,17 @@ def calculate_angles(landmarks, frame_width, frame_height):
     left_eye_outer = normalized_to_pixel(left_eye_outer, frame_width, frame_height)
     right_eye_outer = normalized_to_pixel(right_eye_outer, frame_width, frame_height)
     forehead = normalized_to_pixel(forehead, frame_width, frame_height)
+    # Extract 3D coordinates (normalized)
+    if results.multi_face_landmarks:
+        # Extract 3D coordinates (normalized)
+        nose_for_pitch = face_landmarks.landmark[1]
+        chin_for_pitch = face_landmarks.landmark[152]
+        # Convert to pixel coordinates
+        nose_3d = np.array([nose_for_pitch.x * frame_width, nose_for_pitch.y * frame_height, nose_for_pitch.z * frame_width])
+        chin_3d = np.array([chin_for_pitch.x * frame_width, chin_for_pitch.y * frame_height, chin_for_pitch.z * frame_width])
 
-    # Calculate pitch (vertical head angle) based on the difference between chin and nose tip
-   # delta_y = chin[1] - nose_tip[1]
-   # delta_x = chin[0] - nose_tip[0]
-   # pitch = np.arctan2(delta_y, delta_x) * (180 / np.pi)  # Convert from radians to degrees
-
-    # **Fixed Pitch Calculation** (Chin to Forehead)
-    delta_y = chin[1] - forehead[1]
-    distance_chin_forehead = np.linalg.norm(np.array(chin) - np.array(forehead))
-    pitch = np.arctan2(delta_y, distance_chin_forehead) * (180 / np.pi)
+        # Compute pitch using 3D coordinates
+        pitch = calculate_pitch(nose_3d, chin_3d)
 
     # Calculate yaw (horizontal head angle) based on the eye positions
     delta_x_eye = right_eye_outer[0] - left_eye_outer[0]
@@ -94,6 +112,7 @@ while cap.isOpened():
     if not ret:  # Break loop if the frame cannot be read
         break
 
+    h, w, _ = frame.shape
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert frame to RGB for Mediapipe processing
     results = face_mesh.process(rgb_frame)  # Process the frame with Mediapipe Face Mesh
 
@@ -118,7 +137,7 @@ while cap.isOpened():
                 head_alerts = []
 
                 # Only check the angle that exceeds the threshold
-                if abs(pitch - baseline_pitch) > PITCH_THRESHOLD:
+                if abs(pitch - baseline_pitch) > PITCH_THRESHOLD or pitch > 73:
                     head_alerts = check_abnormal_angles(pitch, yaw, roll, 'pitch')  # Check for abnormal pitch
                 if abs(yaw - baseline_yaw) > YAW_THRESHOLD:
                     head_alerts = check_abnormal_angles(pitch, yaw, roll, 'yaw')  # Check for abnormal yaw
