@@ -36,9 +36,12 @@ ROLL_THRESHOLD = 10  # Angle in degrees for abnormal roll
 def calculate_pitch(nose, chin):
     """Compute the pitch angle using nose and chin landmarks."""
     # Vector from nose to chin (3D)
+    #positive value means the chin is lower than the nose (head tilted downward "forward")
+    #negative value means the chin is above the nose (head tilted upward "backword")
     vector = np.array([chin[0] - nose[0], chin[1] - nose[1], chin[2] - nose[2]])
 
     # Compute pitch using atan2 (Preserves sign for up/down movement)
+    #projection of the vector in the X-Z plane "np.linalg.norm([vector[0], vector[2]])"
     pitch_angle = np.degrees(np.arctan2(vector[1], np.linalg.norm([vector[0], vector[2]])))
 
     # Adjust for backward movement
@@ -47,6 +50,24 @@ def calculate_pitch(nose, chin):
 
     return pitch_angle
 
+def compute_ear(landmarks, eye_indices):
+    # Vertical distances
+    vertical1 = np.linalg.norm(
+        np.array([landmarks[159].x, landmarks[159].y]) - 
+        np.array([landmarks[145].x, landmarks[145].y])
+    )
+    vertical2 = np.linalg.norm(
+        np.array([landmarks[158].x, landmarks[158].y]) - 
+        np.array([landmarks[144].x, landmarks[144].y])
+    )
+    # Horizontal distance
+    horizontal = np.linalg.norm(
+        np.array([landmarks[33].x, landmarks[33].y]) - 
+        np.array([landmarks[133].x, landmarks[133].y])
+    )
+    # Compute EAR
+    ear = (vertical1 + vertical2) / (2.0 * horizontal)
+    return ear
 
 # Head Movement Functions
 def calculate_angles(landmarks, frame_width, frame_height):
@@ -82,11 +103,13 @@ def calculate_angles(landmarks, frame_width, frame_height):
     # Calculate yaw (horizontal head angle) based on the eye positions
     delta_x_eye = right_eye_outer[0] - left_eye_outer[0]
     delta_y_eye = right_eye_outer[1] - left_eye_outer[1]
+    #convert rad angle to degree
     yaw = np.arctan2(delta_y_eye, delta_x_eye) * (180 / np.pi)
 
     # Calculate roll (head tilt angle) based on the forehead and chin positions
     delta_x_forehead = forehead[0] - chin[0]
     delta_y_forehead = forehead[1] - chin[1]
+    #convert rad angle to degree
     roll = np.arctan2(delta_y_forehead, delta_x_forehead) * (180 / np.pi)
 
     return pitch, yaw, roll  # Return calculated angles
@@ -181,17 +204,33 @@ while cap.isOpened():
                 np.array([face_landmarks.landmark[33].x, face_landmarks.landmark[33].y]) - 
                 np.array([face_landmarks.landmark[133].x, face_landmarks.landmark[133].y])
             )
-            left_iris_position = (left_iris_center[0] - left_eye_center[0]) / left_eye_width  # Normalize position
+            left_iris_position_x = (left_iris_center[0] - left_eye_center[0]) / left_eye_width  # Normalize position
+            # Calculate EAR
+            left_ear = compute_ear(face_landmarks.landmark, left_eye_indices)
+            
+            # Calculate the relative vertical position of the iris (normalized by eye height)
+            left_eye_height = np.linalg.norm(np.array([face_landmarks.landmark[159].x, face_landmarks.landmark[159].y]) - 
+            np.array([face_landmarks.landmark[145].x, face_landmarks.landmark[145].y])
+            )
+            left_iris_position_y = (left_iris_center[1] - left_eye_center[1]) / left_eye_height  # Normalize vertical position
+            print(f"Left EAR: {left_ear:.4f}, Left Iris Position Y: {left_iris_position_y:.4f}")
 
             # Determine gaze direction
             gaze = "Center"
-            if left_iris_position < -0.1:  # If iris position is on the left side
+            if left_iris_position_x < -0.1:  # If iris position is on the left side
                 gaze = "Right"
-            elif left_iris_position > 0.1:  # If iris position is on the right side
+            elif left_iris_position_x > 0.1:  # If iris position is on the right side
                 gaze = "Left"
+            
+            # Define threshold for looking up/down
+            EAR_THRESHOLD = 0.35 
+            if left_iris_position_y < -0.3 and left_ear < EAR_THRESHOLD:
+                gaze = "Down"
+
+            
 
             # Check for abnormal gaze direction
-            if gaze in ["Left", "Right"]:  # If gaze is not centered
+            if gaze in ["Left", "Right","Down","Looking Away"]:  # If gaze is not centered
                 if gaze_start_time is None:  # Start timer for abnormal gaze
                     gaze_start_time = time.time()
                 elif time.time() - gaze_start_time > gaze_abnormal_duration and not gaze_alert_triggered:
