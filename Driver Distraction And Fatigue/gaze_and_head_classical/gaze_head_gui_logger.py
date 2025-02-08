@@ -17,7 +17,8 @@ gaze_gui= 0
 gaze_status_gui= 0
 head_status_gui= 0
 flag_gui=0
-
+distraction_couter=0
+DISTRACTION_COUNTS_THRESHOLD=5
 
 # Create the GUI window
 root = tk.Tk()
@@ -70,10 +71,15 @@ head_status_label = tk.Label(text_frame, text="Status: ", font=("Arial", 14))
 head_status_label.pack(anchor="w")
 
 # Add a separator (optional)
-separator = tk.Label(text_frame, text="-------------------------------------", font=("Arial", 14))
+separator = tk.Label(text_frame, text="------------------------------------", font=("Arial", 14))
 separator.pack(anchor="w", pady=10)  # Adds a line break for separation
 
 
+extra_info_label = tk.Label(
+    text_frame, text= "", 
+    font=("Verdana", 14, "bold italic"), fg="dark red"
+)
+extra_info_label.pack(anchor="w", pady=(2, 0))
 
 
 ##############################################################################################
@@ -281,138 +287,156 @@ def process_video():
     global flag_gui
     global no_blink_start_time, gaze_alert_triggered
 
+    global distraction_couter
+    start_time_counter = time.time()  # Start time when counting begins
+    time_limit_counter = 5  # Time limit in seconds
     while cap.isOpened():
-        ret, frame = cap.read()  # Read a frame from the webcam
-        if not ret:              # Break loop if the frame cannot be read
-            break
-        h, w, _ = frame.shape
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert frame to RGB for Mediapipe processing
-        results = face_mesh.process(rgb_frame)              # Process the frame with Mediapipe Face Mesh
+        while True:
+            elapsed_time_counter = time.time() - start_time_counter
+            ret, frame = cap.read()  # Read a frame from the webcam
+            if not ret:              # Break loop if the frame cannot be read
+                break
+            h, w, _ = frame.shape
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert frame to RGB for Mediapipe processing
+            results = face_mesh.process(rgb_frame)              # Process the frame with Mediapipe Face Mesh
 
-#--------------------------------------------Head---------------------------------------------#
-        if results.multi_face_landmarks:  # Check if any face is detected
-            for face_landmarks in results.multi_face_landmarks:  # Process each detected face
+    #--------------------------------------------Head---------------------------------------------#
+            if results.multi_face_landmarks:  # Check if any face is detected
+                for face_landmarks in results.multi_face_landmarks:  # Process each detected face
 
-                # If baseline is not set, collect data to calculate baseline angles
-                if not baseline_set:
-                    pitch, yaw, roll = calculate_angles(face_landmarks.landmark, frame.shape[1], frame.shape[0])
-                    elapsed_time = time.time() - start_time  # Calculate elapsed time
-                    baseline_data.append((pitch, yaw, roll))  # Append current angles to baseline data
-                    if elapsed_time >= threshold_time:  # Check if threshold time is reached
-                        # Calculate baseline as the average of collected angles
-                        baseline_pitch, baseline_yaw, baseline_roll = np.mean(baseline_data, axis=0)
-                        baseline_set = True  # Set baseline flag to True
-                        if flag_gui==0:
-                            root.after(100, update_text) 
+                    # If baseline is not set, collect data to calculate baseline angles
+                    if not baseline_set:
+                        pitch, yaw, roll = calculate_angles(face_landmarks.landmark, frame.shape[1], frame.shape[0])
+                        elapsed_time = time.time() - start_time  # Calculate elapsed time
+                        baseline_data.append((pitch, yaw, roll))  # Append current angles to baseline data
+                        if elapsed_time >= threshold_time:  # Check if threshold time is reached
+                            # Calculate baseline as the average of collected angles
+                            baseline_pitch, baseline_yaw, baseline_roll = np.mean(baseline_data, axis=0)
+                            baseline_set = True  # Set baseline flag to True
+                            if flag_gui==0:
+                                root.after(100, update_text) 
 
-                else:
-                    # Calculate head movement angles
-                    flag_gui=1
-                    pitch, yaw, roll = calculate_angles(face_landmarks.landmark, frame.shape[1], frame.shape[0])
-                    pitch_gui,yaw_gui,roll_gui = pitch, yaw, roll
-                    head_alerts = []
-
-                    # Only check the angle that exceeds the threshold
-                    if abs(pitch - baseline_pitch) > PITCH_THRESHOLD or pitch > 73:
-                        head_alerts = check_abnormal_angles(pitch, yaw, roll, 'pitch')  # Check for abnormal pitch
-                    if abs(yaw - baseline_yaw) > YAW_THRESHOLD:
-                        head_alerts = check_abnormal_angles(pitch, yaw, roll, 'yaw')  # Check for abnormal yaw
-                    if abs(roll - baseline_roll) > ROLL_THRESHOLD:
-                        head_alerts = check_abnormal_angles(pitch, yaw, roll, 'roll')  # Check for abnormal roll
-
-                    if head_alerts:  # If any abnormal angles are detected
-                        if head_alert_start_time is None:  # Start timer for abnormal movement
-                            head_alert_start_time = time.time()
-                        elif time.time() - head_alert_start_time > head_abnormal_duration and not head_alert_triggered:
-                            head_alert_triggered = True  # Trigger abnormal head movement alert
                     else:
-                        head_alert_start_time = None  # Reset timer if no abnormal movement
-                        head_alert_triggered = False
+                        # Calculate head movement angles
+                        flag_gui=1
+                        pitch, yaw, roll = calculate_angles(face_landmarks.landmark, frame.shape[1], frame.shape[0])
+                        pitch_gui,yaw_gui,roll_gui = pitch, yaw, roll
+                        head_alerts = []
 
-                    # Display abnormal head movement alerts if triggered
-                    if head_alert_triggered:
-                        if "Abnormal Pitch" in head_alerts:
-                            head_status_gui = "ABNORMAL PITCH"
-                        elif "Abnormal Yaw" in head_alerts:
-                            head_status_gui = "ABNORMAL YAW"
-                        elif "Abnormal Roll" in head_alerts:
-                            head_status_gui = "ABNORMAL ROLL"
+                        # Only check the angle that exceeds the threshold
+                        if abs(pitch - baseline_pitch) > PITCH_THRESHOLD or pitch > 73:
+                            head_alerts = check_abnormal_angles(pitch, yaw, roll, 'pitch')  # Check for abnormal pitch
+                        if abs(yaw - baseline_yaw) > YAW_THRESHOLD:
+                            head_alerts = check_abnormal_angles(pitch, yaw, roll, 'yaw')  # Check for abnormal yaw
+                        if abs(roll - baseline_roll) > ROLL_THRESHOLD:
+                            head_alerts = check_abnormal_angles(pitch, yaw, roll, 'roll')  # Check for abnormal roll
+
+                        if head_alerts:  # If any abnormal angles are detected
+                            if head_alert_start_time is None:  # Start timer for abnormal movement
+                                head_alert_start_time = time.time()
+                            elif time.time() - head_alert_start_time > head_abnormal_duration and not head_alert_triggered:
+                                head_alert_triggered = True  # Trigger abnormal head movement alert
+                        else:
+                            head_alert_start_time = None  # Reset timer if no abnormal movement
+                            head_alert_triggered = False
+
+                        # Display abnormal head movement alerts if triggered
+                        if head_alert_triggered:
+                            if "Abnormal Pitch" in head_alerts:
+                                head_status_gui = "ABNORMAL PITCH"
+                                distraction_couter+=1 
+                            elif "Abnormal Yaw" in head_alerts:
+                                head_status_gui = "ABNORMAL YAW"
+                                distraction_couter+=1 
+                            elif "Abnormal Roll" in head_alerts:
+                                head_status_gui = "ABNORMAL ROLL"
+                                distraction_couter+=1 
+                        else: 
+                            head_status_gui = "NORMAL"
+
+
+    #--------------------------------------------Gaze---------------------------------------------#
+
+                    # Eye landmarks for gaze detection
+                    left_eye_indices = [33, 133, 160, 159, 158, 144, 145, 153]  # Left eye landmarks
+                    left_iris_indices = [468, 469, 470, 471]  # Left iris landmarks
+
+                    # Helper function to calculate the center of a set of landmarks
+                    def get_center(landmarks, indices):
+                        points = np.array([[landmarks[i].x, landmarks[i].y] for i in indices])  # Extract landmark points
+                        return np.mean(points, axis=0)  # Return the mean of the points
+
+                    # Calculate centers for the left eye and iris
+                    left_eye_center = get_center(face_landmarks.landmark, left_eye_indices)
+                    left_iris_center = get_center(face_landmarks.landmark, left_iris_indices)
+
+                    # Calculate the relative horizontal position of the iris
+                    left_eye_width = np.linalg.norm(
+                        np.array([face_landmarks.landmark[33].x, face_landmarks.landmark[33].y]) - 
+                        np.array([face_landmarks.landmark[133].x, face_landmarks.landmark[133].y])
+                    )
+                    left_iris_position_x = (left_iris_center[0] - left_eye_center[0]) / left_eye_width  # Normalize position
+
+                    # Calculate EAR
+                    left_ear = compute_ear(face_landmarks.landmark, left_eye_indices)
+                    
+                    # Calculate the relative vertical position of the iris (normalized by eye height)
+                    left_eye_height = np.linalg.norm(np.array([face_landmarks.landmark[159].x, face_landmarks.landmark[159].y]) - 
+                    np.array([face_landmarks.landmark[145].x, face_landmarks.landmark[145].y])
+                    )
+                    left_iris_position_y = (left_iris_center[1] - left_eye_center[1]) / left_eye_height  # Normalize vertical position
+
+                    # Determine gaze direction
+                    if left_iris_position_x < -0.1:  # If iris position is on the left side
+                        gaze = "Right"
+                        gaze_gui=gaze
+                    elif left_iris_position_x > 0.1:  # If iris position is on the right side
+                        gaze = "Left"
+                        gaze_gui=gaze
+                    else :
+                        gaze ="Center"
+                        gaze_gui=gaze
+                        gaze = process_blink_and_gaze(gaze, left_ear ,left_iris_position_y)
+                        gaze_gui=gaze
+                    
+
+                    # Check for abnormal gaze direction
+                    if gaze in ["Left", "Right","Down","Center Gazed"]:  # If gaze is not centered
+                        if gaze_start_time is None:  # Start timer for abnormal gaze
+                            gaze_start_time = time.time()
+                        elif time.time() - gaze_start_time > gaze_abnormal_duration and not gaze_alert_triggered:
+                            gaze_alert_triggered = True  # Trigger abnormal gaze alert
+                    else:
+                        gaze_start_time = None  # Reset gaze timer
+                        gaze_alert_triggered = False
+
+                    # Display abnormal gaze alert if triggered
+                    if gaze_alert_triggered:
+                        gaze_status_gui = "ABNORMAL GAZE"
+                        distraction_couter+=1 
                     else: 
-                        head_status_gui = "NORMAL"
+                        gaze_status_gui = "NORMAL"
 
 
-#--------------------------------------------Gaze---------------------------------------------#
+                    # Check if alert is triggered  
+                    #if head_alert_triggered or gaze_alert_triggered:
+                        #buzzer_alert()  # Start buzzer if an alert is triggered
+                    #else:
+                        #stop_buzzer()  # Stop buzzer when no 
+                                        # Check if alert is triggered  
+                    if distraction_counter >= 5 and elapsed_time_counter <= time_limit_counter:
+                        print("🚨 Buzzer ON: Too many distractions! 🚨")
+                        buzzer_alert()  # Start buzzer
+                        time.sleep(5)  # Keep buzzer on for 5 seconds
+                        stop_buzzer()  # Stop buzzer
+                        print("✅ Buzzer OFF")
 
-                # Eye landmarks for gaze detection
-                left_eye_indices = [33, 133, 160, 159, 158, 144, 145, 153]  # Left eye landmarks
-                left_iris_indices = [468, 469, 470, 471]  # Left iris landmarks
+                        # Reset counter and timer
+                        distraction_counter = 0
+                        start_time_counter = time.time()
 
-                # Helper function to calculate the center of a set of landmarks
-                def get_center(landmarks, indices):
-                    points = np.array([[landmarks[i].x, landmarks[i].y] for i in indices])  # Extract landmark points
-                    return np.mean(points, axis=0)  # Return the mean of the points
-
-                # Calculate centers for the left eye and iris
-                left_eye_center = get_center(face_landmarks.landmark, left_eye_indices)
-                left_iris_center = get_center(face_landmarks.landmark, left_iris_indices)
-
-                # Calculate the relative horizontal position of the iris
-                left_eye_width = np.linalg.norm(
-                    np.array([face_landmarks.landmark[33].x, face_landmarks.landmark[33].y]) - 
-                    np.array([face_landmarks.landmark[133].x, face_landmarks.landmark[133].y])
-                )
-                left_iris_position_x = (left_iris_center[0] - left_eye_center[0]) / left_eye_width  # Normalize position
-
-                # Calculate EAR
-                left_ear = compute_ear(face_landmarks.landmark, left_eye_indices)
-                
-                # Calculate the relative vertical position of the iris (normalized by eye height)
-                left_eye_height = np.linalg.norm(np.array([face_landmarks.landmark[159].x, face_landmarks.landmark[159].y]) - 
-                np.array([face_landmarks.landmark[145].x, face_landmarks.landmark[145].y])
-                )
-                left_iris_position_y = (left_iris_center[1] - left_eye_center[1]) / left_eye_height  # Normalize vertical position
-
-                # Determine gaze direction
-                if left_iris_position_x < -0.1:  # If iris position is on the left side
-                    gaze = "Right"
-                    gaze_gui=gaze
-                elif left_iris_position_x > 0.1:  # If iris position is on the right side
-                    gaze = "Left"
-                    gaze_gui=gaze
-                else :
-                    gaze ="Center"
-                    gaze_gui=gaze
-                    gaze = process_blink_and_gaze(gaze, left_ear ,left_iris_position_y)
-                    gaze_gui=gaze
-                
-
-                # Check for abnormal gaze direction
-                if gaze in ["Left", "Right","Down","Center Gazed"]:  # If gaze is not centered
-                    if gaze_start_time is None:  # Start timer for abnormal gaze
-                        gaze_start_time = time.time()
-                    elif time.time() - gaze_start_time > gaze_abnormal_duration and not gaze_alert_triggered:
-                        gaze_alert_triggered = True  # Trigger abnormal gaze alert
-                else:
-                    gaze_start_time = None  # Reset gaze timer
-                    gaze_alert_triggered = False
-
-                # Display abnormal gaze alert if triggered
-                if gaze_alert_triggered:
-                    gaze_status_gui = "ABNORMAL GAZE"
-                else: 
-                    gaze_status_gui = "NORMAL"
-
-
-                # Check if alert is triggered  
-                if head_alert_triggered or gaze_alert_triggered:
-                    buzzer_alert()  # Start buzzer if an alert is triggered
-                else:
-                    stop_buzzer()  # Stop buzzer when no 
-                                    # Check if alert is triggered  
-
-
-        # Show the video frame with all annotations
-        cv2.imshow("Head Movement and Gaze Detection", frame)
+            # Show the video frame with all annotations
+            cv2.imshow("Head Movement and Gaze Detection", frame)
 
 
 
