@@ -10,15 +10,17 @@ from PIL import Image, ImageTk
 
 
 ####################################-----GUI-----#############################################
-pitch_gui= 0
-yaw_gui=0
-roll_gui= 0
-gaze_gui= 0
+pitch_gui= 0.0
+yaw_gui=0.0
+roll_gui= 0.0
+gaze_gui= "Center"
 gaze_status_gui= 0
 head_status_gui= 0
 flag_gui=0
-distraction_couter=0
-DISTRACTION_COUNTS_THRESHOLD=5
+distraction_flag_head=0
+distraction_flag_gaze=0
+temp =0 
+temp_g=0
 
 # Create the GUI window
 root = tk.Tk()
@@ -71,15 +73,23 @@ head_status_label = tk.Label(text_frame, text="Status: ", font=("Arial", 14))
 head_status_label.pack(anchor="w")
 
 # Add a separator (optional)
-separator = tk.Label(text_frame, text="------------------------------------", font=("Arial", 14))
+separator = tk.Label(text_frame, text="--------------------------------------------------", font=("Arial", 14))
 separator.pack(anchor="w", pady=10)  # Adds a line break for separation
 
 
-extra_info_label = tk.Label(
-    text_frame, text= "", 
-    font=("Verdana", 14, "bold italic"), fg="dark red"
-)
-extra_info_label.pack(anchor="w", pady=(2, 0))
+distraction_label = tk.Label(text_frame, text="Distraction counts within 3 min : ", font=("Arial", 14))
+distraction_label.pack(anchor="w")
+
+# Add a separator (optional)
+separator = tk.Label(text_frame, text="--------------------------------------------------", font=("Arial", 14))
+separator.pack(anchor="w", pady=10)  # Adds a line break for separation
+
+distraction_flag_label = tk.Label(text_frame, text="", font=("Arial", 18, "bold"))
+distraction_flag_label.pack(anchor="w")
+
+
+distraction_highriskflag_label = tk.Label(text_frame, text="", font=("Arial", 18, "bold"))
+distraction_highriskflag_label.pack(anchor="w")
 
 
 ##############################################################################################
@@ -113,7 +123,7 @@ PITCH_THRESHOLD = 10         # Angle in degrees for abnormal pitch
 YAW_THRESHOLD = 10           # Angle in degrees for abnormal yaw
 ROLL_THRESHOLD = 10          # Angle in degrees for abnormal roll
 EAR_THRESHOLD = 0.35         # EAR threshold which below it considered looking down
-NO_BLINK_GAZE_DURATION = 10  # Time (seconds) for center gaze without blinking to be considered abnormal
+NO_BLINK_GAZE_DURATION = 20  # Time (seconds) for center gaze without blinking to be considered abnormal
 
 
 # Global buzzer control
@@ -121,6 +131,14 @@ buzzer_running = False
 no_blink_start_time = None  # Timer for no blink detection
 
 
+
+distraction_counter = 0
+#time_limit_counter = 100  #  minutes in seconds
+start_time_counter = time.time()  # Initialize start time
+DISTRACTION_THRESHOLD=4
+
+# Flag to ensure abnormal gaze is counted only once
+gaze_flag = False  
 
 #################################-----Used Functions----##########################################
 def calculate_pitch(nose, chin):
@@ -257,7 +275,6 @@ def calculate_angles(landmarks, frame_width, frame_height):
 
 # Function to check if head movement angles exceed thresholds
 def check_abnormal_angles(pitch, yaw, roll, movement_type):
-    
     alerts = []                     
     if movement_type == 'pitch':    
         alerts.append("Abnormal Pitch")
@@ -265,13 +282,29 @@ def check_abnormal_angles(pitch, yaw, roll, movement_type):
         alerts.append("Abnormal Yaw")
     elif movement_type == 'roll':  
         alerts.append("Abnormal Roll")
-        
     return alerts                   
 
+def action_after_buzzer():
+    global temp , temp_g
+    temp=0
+    temp_g=0
+
+def reset_distraction_flag():
+    global distraction_flag_head, distraction_flag_gaze, distraction_counter, start_time_counter
+
+    # Reset distraction flags
+    distraction_flag_head = 0  
+    distraction_flag_gaze = 0  
+
+    # Reset distraction counter after buzzer stops
+    distraction_counter = 0  
+    start_time_counter = time.time()  
+
+    # Run action_after_buzzer() after 1 second
+    root.after(1000, action_after_buzzer)
 
 
 ###################################----start the process----##################################
-
 
 
 # Capture video from webcam
@@ -279,164 +312,188 @@ cap = cv2.VideoCapture(0)
 
 # Process video frames
 def process_video():
-    # make all variables global
-    global baseline_set , head_alert_triggered , gaze_abnormal_duration , gaze_alert_triggered , gaze_center_label , gaze_start_time
+    """
+    Processes video frames in real-time to monitor head movement and gaze direction.
+    Updates global variables and triggers warnings based on detected distractions.
+    """
+    # Declare global variables
+    global baseline_set, head_alert_triggered, gaze_abnormal_duration, gaze_alert_triggered, gaze_center_label, gaze_start_time
     global head_alert_start_time
-    global pitch_gui,yaw_gui,roll_gui, head_status_gui
-    global gaze_gui,gaze_status_gui
+    global pitch_gui, yaw_gui, roll_gui, head_status_gui
+    global gaze_gui, gaze_status_gui
     global flag_gui
     global no_blink_start_time, gaze_alert_triggered
+    global distraction_flag_gaze, distraction_flag_head
+    global distraction_counter
+    global temp, temp_g
 
-    global distraction_couter
-    start_time_counter = time.time()  # Start time when counting begins
-    time_limit_counter = 5  # Time limit in seconds
+    # Initialize distraction time counter
+    start_time_counter = time.time()  # Start tracking distractions
+    time_limit_counter = 180  # 3-minute threshold
+
     while cap.isOpened():
-        while True:
-            elapsed_time_counter = time.time() - start_time_counter
-            ret, frame = cap.read()  # Read a frame from the webcam
-            if not ret:              # Break loop if the frame cannot be read
-                break
-            h, w, _ = frame.shape
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert frame to RGB for Mediapipe processing
-            results = face_mesh.process(rgb_frame)              # Process the frame with Mediapipe Face Mesh
+        # Calculate elapsed time for distraction tracking
+        elapsed_time_counter = time.time() - start_time_counter
 
-    #--------------------------------------------Head---------------------------------------------#
-            if results.multi_face_landmarks:  # Check if any face is detected
-                for face_landmarks in results.multi_face_landmarks:  # Process each detected face
+        # Read frame from webcam
+        ret, frame = cap.read()
+        if not ret:  # Exit if no frame is received
+            break
 
-                    # If baseline is not set, collect data to calculate baseline angles
-                    if not baseline_set:
-                        pitch, yaw, roll = calculate_angles(face_landmarks.landmark, frame.shape[1], frame.shape[0])
-                        elapsed_time = time.time() - start_time  # Calculate elapsed time
-                        baseline_data.append((pitch, yaw, roll))  # Append current angles to baseline data
-                        if elapsed_time >= threshold_time:  # Check if threshold time is reached
-                            # Calculate baseline as the average of collected angles
-                            baseline_pitch, baseline_yaw, baseline_roll = np.mean(baseline_data, axis=0)
-                            baseline_set = True  # Set baseline flag to True
-                            if flag_gui==0:
-                                root.after(100, update_text) 
+        # Convert frame to RGB format for Mediapipe processing
+        h, w, _ = frame.shape
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(rgb_frame)  # Process frame using Mediapipe Face Mesh
 
+        # -------------------------------------------- Head Movement Detection --------------------------------------------
+        if results.multi_face_landmarks:  # If a face is detected
+            for face_landmarks in results.multi_face_landmarks:
+
+                # ✅ Step 1: Collect baseline angles if not set
+                if not baseline_set:
+                    pitch, yaw, roll = calculate_angles(face_landmarks.landmark, w, h)
+                    elapsed_time = time.time() - start_time  # Track baseline time
+                    baseline_data.append((pitch, yaw, roll))  # Store collected angles
+
+                    # ✅ Once baseline is collected for the threshold duration
+                    if elapsed_time >= threshold_time:
+                        # Compute baseline averages
+                        baseline_pitch, baseline_yaw, baseline_roll = np.mean(baseline_data, axis=0)
+                        baseline_set = True  # Mark baseline as set
+
+                        # ✅ Start GUI updates
+                        if flag_gui == 0:
+                            root.after(100, update_text) 
+
+                else:
+                    # ✅ Step 2: Calculate head angles
+                    flag_gui = 1  # Enable GUI updates
+                    pitch, yaw, roll = calculate_angles(face_landmarks.landmark, w, h)
+                    pitch_gui, yaw_gui, roll_gui = pitch, yaw, roll  # Update GUI values
+
+                    # Detect abnormal movements
+                    head_alerts = []
+                    if abs(pitch - baseline_pitch) > PITCH_THRESHOLD or pitch > 73:
+                        head_alerts = check_abnormal_angles(pitch, yaw, roll, 'pitch')
+                    if abs(yaw - baseline_yaw) > YAW_THRESHOLD:
+                        head_alerts = check_abnormal_angles(pitch, yaw, roll, 'yaw')
+                    if abs(roll - baseline_roll) > ROLL_THRESHOLD:
+                        head_alerts = check_abnormal_angles(pitch, yaw, roll, 'roll')
+
+                    # ✅ Step 3: Trigger alerts based on detected movements
+                    if head_alerts:
+                        if head_alert_start_time is None:  # Start timer
+                            head_alert_start_time = time.time()
+                        elif time.time() - head_alert_start_time > head_abnormal_duration and not head_alert_triggered:
+                            head_alert_triggered = True
+                            distraction_counter += 1  # Increase distraction counter
                     else:
-                        # Calculate head movement angles
-                        flag_gui=1
-                        pitch, yaw, roll = calculate_angles(face_landmarks.landmark, frame.shape[1], frame.shape[0])
-                        pitch_gui,yaw_gui,roll_gui = pitch, yaw, roll
-                        head_alerts = []
+                        head_alert_start_time = None  # Reset timer
+                        head_alert_triggered = False
 
-                        # Only check the angle that exceeds the threshold
-                        if abs(pitch - baseline_pitch) > PITCH_THRESHOLD or pitch > 73:
-                            head_alerts = check_abnormal_angles(pitch, yaw, roll, 'pitch')  # Check for abnormal pitch
-                        if abs(yaw - baseline_yaw) > YAW_THRESHOLD:
-                            head_alerts = check_abnormal_angles(pitch, yaw, roll, 'yaw')  # Check for abnormal yaw
-                        if abs(roll - baseline_roll) > ROLL_THRESHOLD:
-                            head_alerts = check_abnormal_angles(pitch, yaw, roll, 'roll')  # Check for abnormal roll
+                    # ✅ Step 4: Update GUI warnings
+                    if head_alert_triggered:
+                        if "Abnormal Pitch" in head_alerts:
+                            head_status_gui = "ABNORMAL PITCH"
+                            distraction_flag_head = 1
+                        elif "Abnormal Yaw" in head_alerts:
+                            head_status_gui = "ABNORMAL YAW"
+                            distraction_flag_head = 1
+                        elif "Abnormal Roll" in head_alerts:
+                            head_status_gui = "ABNORMAL ROLL"
+                            distraction_flag_head = 1
+                    else:
+                        head_status_gui = "NORMAL"
+                        distraction_flag_head = 0
 
-                        if head_alerts:  # If any abnormal angles are detected
-                            if head_alert_start_time is None:  # Start timer for abnormal movement
-                                head_alert_start_time = time.time()
-                            elif time.time() - head_alert_start_time > head_abnormal_duration and not head_alert_triggered:
-                                head_alert_triggered = True  # Trigger abnormal head movement alert
-                        else:
-                            head_alert_start_time = None  # Reset timer if no abnormal movement
-                            head_alert_triggered = False
+        # -------------------------------------------- Gaze Detection --------------------------------------------
+                # Define facial landmarks for eye and iris detection
+                left_eye_indices = [33, 133, 160, 159, 158, 144, 145, 153]
+                left_iris_indices = [468, 469, 470, 471]
 
-                        # Display abnormal head movement alerts if triggered
-                        if head_alert_triggered:
-                            if "Abnormal Pitch" in head_alerts:
-                                head_status_gui = "ABNORMAL PITCH"
-                                distraction_couter+=1 
-                            elif "Abnormal Yaw" in head_alerts:
-                                head_status_gui = "ABNORMAL YAW"
-                                distraction_couter+=1 
-                            elif "Abnormal Roll" in head_alerts:
-                                head_status_gui = "ABNORMAL ROLL"
-                                distraction_couter+=1 
-                        else: 
-                            head_status_gui = "NORMAL"
+                # Helper function to calculate the center of landmarks
+                def get_center(landmarks, indices):
+                    points = np.array([[landmarks[i].x, landmarks[i].y] for i in indices])
+                    return np.mean(points, axis=0)  # Compute mean center
 
+                # Compute eye and iris centers
+                left_eye_center = get_center(face_landmarks.landmark, left_eye_indices)
+                left_iris_center = get_center(face_landmarks.landmark, left_iris_indices)
 
-    #--------------------------------------------Gaze---------------------------------------------#
+                # Compute iris horizontal position
+                left_eye_width = np.linalg.norm(
+                    np.array([face_landmarks.landmark[33].x, face_landmarks.landmark[33].y]) - 
+                    np.array([face_landmarks.landmark[133].x, face_landmarks.landmark[133].y])
+                )
+                left_iris_position_x = (left_iris_center[0] - left_eye_center[0]) / left_eye_width
 
-                    # Eye landmarks for gaze detection
-                    left_eye_indices = [33, 133, 160, 159, 158, 144, 145, 153]  # Left eye landmarks
-                    left_iris_indices = [468, 469, 470, 471]  # Left iris landmarks
-
-                    # Helper function to calculate the center of a set of landmarks
-                    def get_center(landmarks, indices):
-                        points = np.array([[landmarks[i].x, landmarks[i].y] for i in indices])  # Extract landmark points
-                        return np.mean(points, axis=0)  # Return the mean of the points
-
-                    # Calculate centers for the left eye and iris
-                    left_eye_center = get_center(face_landmarks.landmark, left_eye_indices)
-                    left_iris_center = get_center(face_landmarks.landmark, left_iris_indices)
-
-                    # Calculate the relative horizontal position of the iris
-                    left_eye_width = np.linalg.norm(
-                        np.array([face_landmarks.landmark[33].x, face_landmarks.landmark[33].y]) - 
-                        np.array([face_landmarks.landmark[133].x, face_landmarks.landmark[133].y])
-                    )
-                    left_iris_position_x = (left_iris_center[0] - left_eye_center[0]) / left_eye_width  # Normalize position
-
-                    # Calculate EAR
-                    left_ear = compute_ear(face_landmarks.landmark, left_eye_indices)
-                    
-                    # Calculate the relative vertical position of the iris (normalized by eye height)
-                    left_eye_height = np.linalg.norm(np.array([face_landmarks.landmark[159].x, face_landmarks.landmark[159].y]) - 
+                # Compute iris vertical position
+                left_eye_height = np.linalg.norm(
+                    np.array([face_landmarks.landmark[159].x, face_landmarks.landmark[159].y]) - 
                     np.array([face_landmarks.landmark[145].x, face_landmarks.landmark[145].y])
-                    )
-                    left_iris_position_y = (left_iris_center[1] - left_eye_center[1]) / left_eye_height  # Normalize vertical position
+                )
+                left_iris_position_y = (left_iris_center[1] - left_eye_center[1]) / left_eye_height
 
-                    # Determine gaze direction
-                    if left_iris_position_x < -0.1:  # If iris position is on the left side
-                        gaze = "Right"
-                        gaze_gui=gaze
-                    elif left_iris_position_x > 0.1:  # If iris position is on the right side
-                        gaze = "Left"
-                        gaze_gui=gaze
-                    else :
-                        gaze ="Center"
-                        gaze_gui=gaze
-                        gaze = process_blink_and_gaze(gaze, left_ear ,left_iris_position_y)
-                        gaze_gui=gaze
+                # ✅ Step 1: Detect Gaze Direction
+                if left_iris_position_x < -0.1:
+                    gaze = "Right"
+                elif left_iris_position_x > 0.1:
+                    gaze = "Left"
+                else:
+                    gaze = process_blink_and_gaze("Center", compute_ear(face_landmarks.landmark, left_eye_indices), left_iris_position_y)
+                
+                gaze_gui = gaze  # Update GUI
+
+                # ✅ Step 2: Detect Abnormal Gaze
+                if gaze in ["Left", "Right", "Down", "Center Gazed"]:
+                    if gaze_start_time is None:
+                        gaze_start_time = time.time()
+                    elif time.time() - gaze_start_time > gaze_abnormal_duration and not gaze_alert_triggered:
+                        gaze_alert_triggered = True
+                        if not gaze_flag:
+                            distraction_counter += 1
+                            gaze_flag = True
+                else:
+                    gaze_start_time = None
+                    gaze_alert_triggered = False
+
+                    if gaze == "Center":
+                        gaze_flag=False
+
+
+                # ✅ Step 3: Update Gaze Warnings
+                if gaze_alert_triggered:
+                    gaze_status_gui = "ABNORMAL GAZE"
+                    distraction_flag_gaze = 1
+                else:
+                    gaze_status_gui = "NORMAL"
+                    distraction_flag_gaze = 0
+
+        # -------------------------------------------- Distraction Handling --------------------------------------------
+
+
+                # ✅ If distraction threshold is reached, trigger HIGH RISK alert
+                if distraction_counter >= DISTRACTION_THRESHOLD and elapsed_time_counter < time_limit_counter:
+                    temp = 1
+                    temp_g = 1
+                    distraction_flag_head = 2
+                    distraction_flag_gaze = 2
+
+                    # Activate buzzer alert
+                    buzzer_alert()
                     
+                    # Stop buzzer after 5 sec and reset distractions
+                    root.after(5000, stop_buzzer)
+                    root.after(9000, reset_distraction_flag)
+                elif elapsed_time_counter >= time_limit_counter:
+                    # ✅ Reset counter every 3 minutes
+                    print("⏳ 3 minutes passed. Resetting counter.")
+                    distraction_counter = 0
+                    start_time_counter = time.time()
 
-                    # Check for abnormal gaze direction
-                    if gaze in ["Left", "Right","Down","Center Gazed"]:  # If gaze is not centered
-                        if gaze_start_time is None:  # Start timer for abnormal gaze
-                            gaze_start_time = time.time()
-                        elif time.time() - gaze_start_time > gaze_abnormal_duration and not gaze_alert_triggered:
-                            gaze_alert_triggered = True  # Trigger abnormal gaze alert
-                    else:
-                        gaze_start_time = None  # Reset gaze timer
-                        gaze_alert_triggered = False
+        # ✅ Display the processed frame
+        cv2.imshow("Head Movement and Gaze Detection", frame)
 
-                    # Display abnormal gaze alert if triggered
-                    if gaze_alert_triggered:
-                        gaze_status_gui = "ABNORMAL GAZE"
-                        distraction_couter+=1 
-                    else: 
-                        gaze_status_gui = "NORMAL"
-
-
-                    # Check if alert is triggered  
-                    #if head_alert_triggered or gaze_alert_triggered:
-                        #buzzer_alert()  # Start buzzer if an alert is triggered
-                    #else:
-                        #stop_buzzer()  # Stop buzzer when no 
-                                        # Check if alert is triggered  
-                    if distraction_counter >= 5 and elapsed_time_counter <= time_limit_counter:
-                        print("🚨 Buzzer ON: Too many distractions! 🚨")
-                        buzzer_alert()  # Start buzzer
-                        time.sleep(5)  # Keep buzzer on for 5 seconds
-                        stop_buzzer()  # Stop buzzer
-                        print("✅ Buzzer OFF")
-
-                        # Reset counter and timer
-                        distraction_counter = 0
-                        start_time_counter = time.time()
-
-            # Show the video frame with all annotations
-            cv2.imshow("Head Movement and Gaze Detection", frame)
 
 
 
@@ -453,44 +510,84 @@ def update_frame():
     video_label.after(10, update_frame)  # Keep calling itself for continuous update
 
 def update_text():
-    global flag_gui 
-    # Update GUI labels
-    dark_orange = "#FF8C00"
+    """
+    Updates the GUI labels based on the distraction status (head and gaze).
+    Runs continuously every 500ms to refresh the displayed information.
+    """
+    global flag_gui, distraction_flag_gaze, distraction_flag_head, temp, temp_g
 
-       
+    # Define colors
+    dark_orange = "#FF8C00"  # Warning color
+    grey = "#808080"  # Default color for baseline setting
+    warning_text = ""  # Initialize empty warning message
+    warning_color = "black"  # Default text color
+
+    ### 📌 Baseline Setup (Before Detection Starts) ###
     if flag_gui == 0:
-        pitch_gui_t= "setting baseline.."
-        yaw_gui_t= "setting baseline.."
-        roll_gui_t= "setting baseline.."
-        gaze_gui_t= "setting baseline.."
-        gaze_status_gui_t= "setting baseline.."
-        head_status_gui_t= "setting baseline.."
-        gaze_center_label.config(text=f"Position: {gaze_gui_t}" , fg=dark_orange)
-        gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui_t}", fg=dark_orange)  # Green for normal gaze
+        # Display "Setting Baseline..." for all metrics
+        pitch_gui_t = yaw_gui_t = roll_gui_t = gaze_gui_t = "setting baseline.."
+        gaze_status_gui_t = head_status_gui_t = "setting baseline.."
 
-        pitch_label.config(text=f"Pitch: {pitch_gui_t} deg" , fg=dark_orange)
-        yaw_label.config(text=f"Yaw: {yaw_gui_t} deg" , fg=dark_orange)
-        roll_label.config(text=f"Roll: {roll_gui_t} deg" , fg=dark_orange)
-        head_status_label.config(text=f"Head Status: {head_status_gui_t} ", fg=dark_orange)  # Display in green for normal status
-    elif flag_gui==1:
-        gaze_center_label.config(text=f"Position: {gaze_gui}" , fg="black")
+        # Update GUI labels
+        gaze_center_label.config(text=f"Position: {gaze_gui_t}", fg=grey)
+        gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui_t}", fg=grey)
+        pitch_label.config(text=f"Pitch: {pitch_gui_t} deg", fg=grey)
+        yaw_label.config(text=f"Yaw: {yaw_gui_t} deg", fg=grey)
+        roll_label.config(text=f"Roll: {roll_gui_t} deg", fg=grey)
+        head_status_label.config(text=f"Head Status: {head_status_gui_t}", fg=grey)
+
+    ### 📌 Detection & Warnings (Active Monitoring) ###
+    elif flag_gui == 1:
+        # Update gaze position
+        gaze_center_label.config(text=f"Position: {gaze_gui}", fg="black")
+
+        # Display gaze status (Normal / Abnormal)
         if gaze_status_gui == "NORMAL":
-            gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui} ✅", fg="green")  # Green for normal gaze
+            gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui} ✅", fg="green")  # Normal gaze
         else:
-            gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui} 🚨", fg="red")  # Red for abnormal gaze
+            gaze_status_label.config(text=f"Gaze Status: {gaze_status_gui} 🚨", fg="red")  # Abnormal gaze
 
-        pitch_label.config(text=f"Pitch: {pitch_gui:.2f} deg" , fg="black")
-        yaw_label.config(text=f"Yaw: {yaw_gui:.2f} deg" , fg="black")
-        roll_label.config(text=f"Roll: {roll_gui:.2f} deg" , fg="black")
+        # Update head movement values
+        pitch_label.config(text=f"Pitch: {pitch_gui:.2f} deg", fg="black")
+        yaw_label.config(text=f"Yaw: {yaw_gui:.2f} deg", fg="black")
+        roll_label.config(text=f"Roll: {roll_gui:.2f} deg", fg="black")
 
+        # Display head status (Normal / Abnormal)
         if head_status_gui == "NORMAL":
-            head_status_label.config(text=f"Head Status: {head_status_gui} ✅", fg="green")  # Display in green for normal status
+            head_status_label.config(text=f"Head Status: {head_status_gui} ✅", fg="green")
         else:
-            head_status_label.config(text=f"Head Status: {head_status_gui} 🚨", fg="red")  # Display in red for abnormal status
+            head_status_label.config(text=f"Head Status: {head_status_gui} 🚨", fg="red")
 
+        # Update distraction counter
+        distraction_label.config(text=f"Distraction Count within 3 min: {distraction_counter}", fg="black")
 
-    # Call update_text() every 500ms instead of blocking
-    root.after(500, update_text) 
+        ### 📌 Checking Distraction Warnings ###
+
+        # 🛑 Gaze Warnings
+        if distraction_flag_gaze == 2 and temp_g == 1:  # High risk due to gaze
+            warning_text += "🚨 HIGH RISK 🚨"
+            warning_color = "red"
+        elif distraction_flag_gaze == 1 and temp_g == 0:  # Moderate distraction due to gaze
+            warning_text += "⚠️ WARNING: Driver Distracted!"
+            warning_color = dark_orange
+
+        # 🛑 Head Movement Warnings
+        if distraction_flag_head == 2 and temp == 1:  # High risk due to head movement
+            warning_text += "🚨 HIGH RISK 🚨"
+            warning_color = "red"
+        elif distraction_flag_head == 1 and temp == 0:  # Moderate distraction due to head movement
+            warning_text += "⚠️ WARNING: Driver Distracted!"
+            warning_color = dark_orange
+
+        ### 📌 Updating the Warning Label ###
+        if warning_text == "":
+            distraction_flag_label.config(text="")  # No warning
+        else:
+            distraction_flag_label.config(text=warning_text.strip(), fg=warning_color)  # Display warning message
+
+    # 🔄 Schedule the function to run again in 500ms
+    root.after(500, update_text)
+
 
 
 def start_processing():
