@@ -137,8 +137,8 @@ distraction_counter = 0
 start_time_counter = time.time()  # Initialize start time
 DISTRACTION_THRESHOLD=4
 
-
-
+# Flag to ensure abnormal gaze is counted only once
+gaze_flag = False  
 
 #################################-----Used Functions----##########################################
 def calculate_pitch(nose, chin):
@@ -450,10 +450,16 @@ def process_video():
                         gaze_start_time = time.time()
                     elif time.time() - gaze_start_time > gaze_abnormal_duration and not gaze_alert_triggered:
                         gaze_alert_triggered = True
-                        distraction_counter += 1
+                        if not gaze_flag:
+                            distraction_counter += 1
+                            gaze_flag = True
                 else:
                     gaze_start_time = None
                     gaze_alert_triggered = False
+
+                    if gaze == "Center":
+                        gaze_flag=False
+
 
                 # ✅ Step 3: Update Gaze Warnings
                 if gaze_alert_triggered:
