@@ -7,8 +7,8 @@ import random
 from pathlib import Path
 
 # Configuration
-CUSTOM_WEIGHTS_PATH = r"D:\GRAD_PROJECT\how\best.pt"  # Path to your trained weights file
-IMAGES_FOLDER = r"D:\GRAD_PROJECT\how\new_images_inference"  # Folder containing images for inference
+CUSTOM_WEIGHTS_PATH = r"C:\Users\Farah\Downloads\best (1).pt"  # Path to your trained weights file
+IMAGES_FOLDER = r"D:\GRAD_PROJECT\how\uncle_aya"  # Folder containing images for inference
 YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\how\yolov7"  # Path to YOLOv7 repository
 CONFIDENCE_THRESHOLD = 0.6  # Lowered for more detections
 
@@ -65,6 +65,9 @@ with torch.no_grad():
         detections = predictions[0] if isinstance(predictions, (list, tuple)) else predictions
         detections = non_max_suppression(detections, CONFIDENCE_THRESHOLD, 0.45)[0]  # Apply non-max suppression
 
+        # Initialize label before the loop
+        label = "No Detection"
+        color = (255,255,255)
         if detections is not None and len(detections):
             # Process predictions
             detections[:, :4] = scale_coords(img_tensor.shape[2:], detections[:, :4], original_image.shape).round()
@@ -78,8 +81,8 @@ with torch.no_grad():
                     continue
 
                 # Determine label and color
-                label = f"{'HandsOnWheel' if cls == 1 else 'HandsNotOnWheel'} {conf:.2f}"
-                color = (0, 255, 0) if cls == 1 else (255, 0, 0)
+                label = f"{'HandsOnWheel' if cls == 1 else 'HandsOffWheel'} {conf:.2f}"
+                color = (255,0, 0) if cls == 1 else (0, 0, 255)
 
                 # Draw bounding box
                 cv2.rectangle(original_image, (x1, y1), (x2, y2), color, 2)
