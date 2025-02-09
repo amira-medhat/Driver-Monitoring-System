@@ -7,9 +7,9 @@ import random
 from pathlib import Path
 
 # Configuration
-CUSTOM_WEIGHTS_PATH = r"C:\Users\Farah\Downloads\best (1).pt"  # Path to your trained weights file
-IMAGES_FOLDER = r"D:\GRAD_PROJECT\how\uncle_aya"  # Folder containing images for inference
-YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\how\yolov7"  # Path to YOLOv7 repository
+CUSTOM_WEIGHTS_PATH = r"D:\GRAD_PROJECT\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\best_fine_tune.pt"  # Path to your trained weights file
+IMAGES_FOLDER = r"D:\GRAD_PROJECT\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\uncle_aya"  # Folder containing images for inference
+YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\yolov7"  # Path to YOLOv7 repository
 CONFIDENCE_THRESHOLD = 0.6  # Lowered for more detections
 
 # Check if weights file exists
