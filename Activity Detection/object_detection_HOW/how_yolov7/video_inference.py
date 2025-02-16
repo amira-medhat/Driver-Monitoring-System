@@ -11,10 +11,10 @@ from queue import Queue
 
 
 # Configuration
-CUSTOM_WEIGHTS_PATH = r"D:\GRAD_PROJECT\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\best_lastTrain.pt"  # Path to trained weights file
+CUSTOM_WEIGHTS_PATH = r"C:\Users\Farah\Downloads\best (2).pt"  # Path to trained weights file
 YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\yolov7"  # Path to YOLOv7 repository
-VIDEO_PATH = r"D:\GRAD_PROJECT\videos\farah_vid2.mp4"  # Path to the input video
-CONFIDENCE_THRESHOLD = 0.55  # Confidence threshold for detections
+VIDEO_PATH = r"C:\Users\Farah\Desktop\nadoushy.mp4" # Path to the input video
+CONFIDENCE_THRESHOLD = 0.5  # Confidence threshold for detections
 
 # Check if weights file exists
 if not os.path.exists(CUSTOM_WEIGHTS_PATH):
@@ -62,7 +62,7 @@ def read_frames():
 
 threading.Thread(target=read_frames, daemon=True).start()
 
-frame_skip = 2  # Process every 2nd frame
+frame_skip = 40 # Process every 2nd frame
 frame_count = 0
 
 while cap.isOpened():
@@ -89,7 +89,7 @@ while cap.isOpened():
         predictions = predictions[0]
     
     # Extract detections
-    detections = non_max_suppression(predictions, CONFIDENCE_THRESHOLD, 0.45)[0]
+    detections = non_max_suppression(predictions, CONFIDENCE_THRESHOLD, 0.5)[0]
     
     # Initialize label
     label = "No Detection"
@@ -102,8 +102,12 @@ while cap.isOpened():
             if conf < CONFIDENCE_THRESHOLD:
                 continue
             
-            label = f"{'HandsOnWheel' if cls == 1 else 'HandsOffWheel'} {conf:.2f}"
-            color = (255, 0, 0) if cls == 1 else (0, 0, 255)
+            # notice that if the dataset is augmented you should check yaml and the labels
+            # because roboflow flip all the labels
+            # if augmented : handson -> 0 and handsoff -> 1
+            # Determine label and color
+            label = f"{'HandsOffWheel' if cls == 1 else 'HandsOnWheel'} {conf:.2f}"
+            color = (0,0, 255) if cls == 1 else (0, 255, 0)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
     
     # Display label
