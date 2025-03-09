@@ -173,21 +173,22 @@ inv_transform = transforms.Compose(
 )
 
 # Paths and class labels
-model_path = "C:\\Users\\Amira\\Driver-Monitoring-System\\image_classification\\fine_tuned_resnet18_2.pth"
-test_image_dir = "C:\\Users\\Amira\\state-farm-distracted-driver-detection\\imgs\\test"
+model_path = r"D:\grad project\imgClass_AD\activity detection models\fine_tuned_resnet18_with_how_2.pth"
+test_image_dir = r"D:\grad project\imgClass_AD\test_img"
 labels = list(range(0, 10))
-classes = [
-    "Safe driving",
-    "Texting - right",
-    "Talking on the phone - right",
-    "Texting - left",
-    "Talking on the phone - left",
-    "Operating the radio",
-    "Drinking",
-    "Reaching behind",
-    "Hair and makeup",
-    "Talking to passenger",
-]
+classes = {
+    0: "Safe driving",
+    1: "Texting(right hand)",
+    3: "Talking on the phone (right hand)",
+    4: "Texting (left hand)",
+    5: "Talking on the phone (left hand)",
+    6: "Operating the radio",
+    7: "Drinking",
+    8: "Reaching behind",
+    9: "Hair and makeup",
+    10: "Talking to passenger(s)",
+    2: "Hands off Wheel",
+}
 
 # Create test dataset and DataLoader
 test_dataset = CustomTestDataset(test_image_dir, transform=test_transforms)
@@ -206,7 +207,7 @@ model = PyTorchClassificationModel(
 #     print(f"File: {file}, Predicted: {prediction}")
 
 # Select a specific batch number
-batch_number = 7  # For example, pick the 3rd batch (index starts from 0)
+batch_number = 0  # For example, pick the 3rd batch (index starts from 0)
 
 # Iterate through the DataLoader
 for batch_idx, (images, filenames) in enumerate(test_loader):
