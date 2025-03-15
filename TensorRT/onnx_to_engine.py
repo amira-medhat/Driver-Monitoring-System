@@ -1,13 +1,16 @@
 import os
 import time
-import pycuda.autoinit
 import numpy as np
-import pycuda.driver as cuda
 import tensorrt as trt
 import torch
 
+# TensorRT Logger
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+
+# Constants
 EXPLICIT_BATCH = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class HostDeviceMem:
     def __init__(self, host_mem, device_mem):
@@ -26,13 +29,17 @@ def allocate_buffers(engine, batch_size=1):
             shape = (batch_size,) + shape[1:]
         size = trt.volume(shape)
         dtype = trt.nptype(engine.get_tensor_dtype(binding))
-        host_mem = cuda.pagelocked_empty(shape=size, dtype=dtype)
-        device_mem = cuda.mem_alloc(host_mem.nbytes)
-        bindings.append(int(device_mem))
+
+        # Use PyTorch tensors for memory allocation
+        host_mem = torch.empty(size, dtype=torch.float32, device="cpu")  # Host memory
+        device_mem = host_mem.to(DEVICE, non_blocking=True)  # Device memory (GPU)
+        
+        bindings.append(device_mem.data_ptr())  # Get pointer for TensorRT
         if engine.get_tensor_mode(binding) == trt.TensorIOMode.INPUT:
             inputs.append(HostDeviceMem(host_mem, device_mem))
         else:
             outputs.append(HostDeviceMem(host_mem, device_mem))
+    
     return inputs, outputs, bindings
 
 
@@ -76,11 +83,10 @@ def build_engine(onnx_file_path, engine_file_path, fp16=False, int8=False):
     return engine
 
 
-TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
-
-onnx_model_path = '/home/farouk/Public/Workspace/mobilenet_v3_large.onnx'
-trt_engine_path = '/home/farouk/Public/Workspace/model.engine'
-fp16_mode = True
+# TensorRT Engine Build and Inference
+onnx_model_path = '/home/farouk/Public/Workspace/ActivityDetection.onnx'
+trt_engine_path = '/home/farouk/Public/Workspace/ActivityDetection32.engine'
+fp16_mode = False
 int8_mode = False
 
 engine = build_engine(onnx_model_path, trt_engine_path, fp16_mode, int8_mode)
@@ -91,18 +97,13 @@ inputs, outputs, bindings = allocate_buffers(engine)
 # Create execution context
 context = engine.create_execution_context()
 
-# Prepare input data
-input_data = np.random.rand(1, 3, 64, 64).astype(np.float32)
-inputs[0].host = input_data
+# Prepare input data (convert NumPy to PyTorch tensor)
+input_data = torch.rand((1, 3, 64, 64), dtype=torch.float32).to(DEVICE, non_blocking=True)
+inputs[0].device.copy_(input_data)  # Copy input to GPU
 
 # Run inference
-stream = cuda.Stream()
-
-cuda.memcpy_htod_async(inputs[0].device, inputs[0].host, stream)
-context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
-cuda.memcpy_dtoh_async(outputs[0].host, outputs[0].device, stream)
-stream.synchronize()
+context.execute_v2(bindings)
 
 # Get output
-output = outputs[0].host
+output = outputs[0].device.cpu().numpy()  # Copy output back to CPU
 print(output)

@@ -16,7 +16,7 @@ if __name__=="__main__":
 
     mobilenet_v3_large.classifier[3] = nn.Linear(in_features=1280, out_features=10)
     
-    checkpoint_path = r"C:\Users\Amira\Driver-Monitoring-System\activity detection aya's edition\fine_tuned_mobilenetv3_1.pth"
+    checkpoint_path = "/home/farouk/Public/Workspace/fine_tuned_mobilenetv3_with_aug.pth"
     mobilenet_v3_large.load_state_dict(torch.load(checkpoint_path, weights_only=True))
     
     model = mobilenet_v3_large
@@ -28,7 +28,7 @@ if __name__=="__main__":
     # Assuming the model expects 3 channels (RGB) and 224x224 resolution:
     dummy_input = torch.randn(1, 3, 224, 224, device=device)
     
-    onnx_file_path = "mobilenet_v3_large.onnx"
+    onnx_file_path = "ActivityDetection.onnx"
     torch.onnx.export(
         model,                      # the model being exported
         dummy_input,                # dummy input for tracing

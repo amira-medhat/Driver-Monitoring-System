@@ -7,12 +7,12 @@ import cv2
 import onnxruntime as ort
 from PIL import Image
 import time
-from PyQt5.QtWidgets import QApplication, QFileDialog
-import sys
+import os
+import glob
 
 # Paths
-pytorch_model_path = r"D:\grad project\TensorRT\fine_tuned_mobilenetv3_with_aug.pth"
-onnx_model_path = r"D:\grad project\TensorRT\mobilenet_v3_large\mobilenet_v3_large.onnx"
+pytorch_model_path = '/home/farouk/Deployment/ActivityDetection/weights/fine_tuned_mobilenetv3_with_aug.pth'
+onnx_model_path = '/home/farouk/Deployment/ActivityDetection/onnx/ActivityDetection.onnx'
 
 class_labels = {
     0: "Safe driving",
@@ -37,16 +37,16 @@ transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225]),
 ])
 
-# ✅ Load PyTorch Model
+# Load PyTorch Model
 pytorch_model = models.mobilenet_v3_large(weights=None)
 pytorch_model.classifier[-1] = nn.Linear(pytorch_model.classifier[-1].in_features, 10)
 pytorch_model.load_state_dict(torch.load(pytorch_model_path, map_location=device))
 pytorch_model.to(device).eval()
 
-# ✅ Load ONNX Model
+# Load ONNX Model
 onnx_session = ort.InferenceSession(onnx_model_path, providers=["CUDAExecutionProvider" if torch.cuda.is_available() else "CPUExecutionProvider"])
 
-# 🔍 Predict using PyTorch
+# Predict using PyTorch
 def predict_pytorch(img):
     img_tensor = transform(img).unsqueeze(0).to(device)
     with torch.no_grad():
@@ -54,7 +54,7 @@ def predict_pytorch(img):
         probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
     return probs
 
-# 🔍 Predict using ONNX
+# Predict using ONNX
 def predict_onnx(img):
     img_np = transform(img).unsqueeze(0).numpy()
     inputs = {onnx_session.get_inputs()[0].name: img_np}
@@ -66,12 +66,19 @@ def predict_onnx(img):
     probs = np.exp(outputs[0]) / np.sum(np.exp(outputs[0]), axis=1)
     return probs[0], inference_time
 
-# 📹 Process Full Video
+# Process Full Video
 def process_video(video_path):
     cap = cv2.VideoCapture(video_path)
     frame_count = 0
     total_pytorch_time, total_onnx_time, total_mse = 0, 0, 0
 
+    # Check if video opened successfully
+    if not cap.isOpened():
+        print(f"Error: Could not open video at {video_path}")
+        return
+
+    print(f"Processing video: {video_path}")
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -80,12 +87,12 @@ def process_video(video_path):
         img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(img_rgb)
         
-        # ✅ PyTorch inference
+        # PyTorch inference
         start_time = time.time()
         pytorch_probs = predict_pytorch(pil_img)
         pytorch_time = time.time() - start_time
         
-        # ✅ ONNX inference
+        # ONNX inference
         onnx_probs, onnx_time = predict_onnx(pil_img)
         
         mse = np.mean((pytorch_probs - onnx_probs)**2)
@@ -107,14 +114,80 @@ def process_video(video_path):
     print(f"Average PyTorch Inference Time: {avg_pytorch_time:.4f} sec/frame")
     print(f"Average ONNX Inference Time: {avg_onnx_time:.4f} sec/frame")
     print(f"Average Mean Squared Error: {avg_mse:.15f}")
+    print(f"Speed improvement: {avg_pytorch_time/avg_onnx_time:.2f}x")
 
     print("Inference completed successfully.")
 
-# 🎥 Select and Process Video
+def list_videos_in_directory(directory, extensions=None):
+    """List all video files in a directory with specified extensions."""
+    if extensions is None:
+        extensions = ['.mp4', '.avi', '.mov']
+    
+    video_files = []
+    for ext in extensions:
+        if not ext.startswith('.'):
+            ext = '.' + ext
+        pattern = os.path.join(directory, f"*{ext}")
+        video_files.extend(glob.glob(pattern))
+    
+    return video_files
+
+def interactive_video_selection():
+    print("\n===== Driver Activity Detection - PyTorch vs ONNX Performance Comparison =====")
+    
+    while True:
+        print("\nOptions:")
+        print("1. Process a single video file")
+        print("2. Process all videos in a directory")
+        print("3. Exit")
+        
+        choice = input("\nEnter your choice (1-3): ").strip()
+        
+        if choice == '1':
+            video_path = input("Enter the full path to the video file: ").strip()
+            if os.path.isfile(video_path):
+                process_video(video_path)
+            else:
+                print(f"Error: The file '{video_path}' does not exist or is not accessible.")
+                
+        elif choice == '2':
+            dir_path = input("Enter the directory path containing videos: ").strip()
+            if not os.path.isdir(dir_path):
+                print(f"Error: The directory '{dir_path}' does not exist or is not accessible.")
+                continue
+                
+            extensions_input = input("Enter video extensions to process (comma-separated, e.g., mp4,avi,mov): ").strip()
+            if not extensions_input:
+                extensions = ['.mp4', '.avi', '.mov']  # Default extensions
+            else:
+                extensions = ['.' + ext.strip('.') for ext in extensions_input.split(',')]
+                
+            video_files = list_videos_in_directory(dir_path, extensions)
+                
+            if not video_files:
+                print(f"No video files with extension(s) {extensions} found in '{dir_path}'")
+            else:
+                print(f"Found {len(video_files)} video file(s) to process")
+                for i, video_file in enumerate(video_files, 1):
+                    print(f"\nProcessing video {i}/{len(video_files)}: {os.path.basename(video_file)}")
+                    process_video(video_file)
+                    
+        elif choice == '3':
+            print("Exiting program.")
+            break
+            
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
+
+# Main program entry point
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    video_path, _ = QFileDialog.getOpenFileName(None, "Select Video File", "", "Video Files (*.mp4 *.avi *.mov)")
-    if video_path:
-        process_video(video_path)
-    else:
-        print("No video selected.")
+    try:
+        interactive_video_selection()
+    except KeyboardInterrupt:
+        print("\nProgram interrupted by user.")
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        print("Program terminated.")

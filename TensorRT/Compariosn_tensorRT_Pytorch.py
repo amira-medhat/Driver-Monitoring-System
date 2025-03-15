@@ -9,12 +9,12 @@ import pycuda.driver as cuda
 import pycuda.autoinit
 from PIL import Image
 import time
-from PyQt5.QtWidgets import QApplication, QFileDialog
-import sys
+import os
+import glob
 
 # Paths
-pytorch_model_path = '/home/farouk/Public/Workspace/fine_tuned_mobilenetv3_with_aug.pth'
-trt_engine_path = '/home/farouk/Public/Workspace/model.engine'
+pytorch_model_path = '/home/farouk/Deployment/ActivityDetection/weights/fine_tuned_mobilenetv3_with_aug.pth'
+trt_engine_path = '/home/farouk/Deployment/ActivityDetection/engine/ActivityDetection321.engine'
 
 class_labels = {
     0: "Safe driving",
@@ -109,6 +109,13 @@ def process_video(video_path):
     frame_count = 0
     total_pytorch_time, total_trt_time, total_mse = 0, 0, 0
 
+    # Check if video opened successfully
+    if not cap.isOpened():
+        print(f"Error: Could not open video at {video_path}")
+        return
+
+    print(f"Processing video: {video_path}")
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -146,29 +153,87 @@ def process_video(video_path):
     print(f"Average PyTorch Inference Time: {avg_pytorch_time:.4f} sec/frame")
     print(f"Average TensorRT Inference Time: {avg_trt_time:.4f} sec/frame")
     print(f"Average Mean Squared Error: {avg_mse:.6f}")
+    print(f"Speed improvement: {avg_pytorch_time/avg_trt_time:.2f}x")
 
-    # ✅ Safe cleanup of TensorRT resources (now declared as global)
-    if 'context' in globals():
-        del context
-    if 'inputs' in globals():
-        del inputs
-    if 'outputs' in globals():
-        del outputs
-    if 'bindings' in globals():
-        del bindings
-    if 'stream' in globals():
-        del stream
-    if 'engine' in globals():
-        del engine
+    # Safe cleanup of TensorRT resources
+    cleanup_resources()
 
     print("CUDA resources successfully cleaned up.")
 
+def cleanup_resources():
+    if 'context' in globals():
+        del globals()['context']
+    if 'inputs' in globals():
+        del globals()['inputs']
+    if 'outputs' in globals():
+        del globals()['outputs']
+    if 'bindings' in globals():
+        del globals()['bindings']
+    if 'stream' in globals():
+        del globals()['stream']
+    if 'engine' in globals():
+        del globals()['engine']
 
-# Test on a selected video
+def interactive_video_selection():
+    print("\n===== Driver Activity Detection - PyTorch vs TensorRT Performance Comparison =====")
+    
+    while True:
+        print("\nOptions:")
+        print("1. Process a single video file")
+        print("2. Process all videos in a directory")
+        print("3. Exit")
+        
+        choice = input("\nEnter your choice (1-3): ").strip()
+        
+        if choice == '1':
+            video_path = input("Enter the full path to the video file: ").strip()
+            if os.path.isfile(video_path):
+                process_video(video_path)
+            else:
+                print(f"Error: The file '{video_path}' does not exist or is not accessible.")
+                
+        elif choice == '2':
+            dir_path = input("Enter the directory path containing videos: ").strip()
+            if not os.path.isdir(dir_path):
+                print(f"Error: The directory '{dir_path}' does not exist or is not accessible.")
+                continue
+                
+            extensions = input("Enter video extensions to process (comma-separated, e.g., mp4,avi,mov): ").strip()
+            if not extensions:
+                extensions = "mp4,avi,mov"  # Default extensions
+                
+            video_files = []
+            for ext in extensions.split(','):
+                ext = ext.strip()
+                if not ext.startswith('.'):
+                    ext = '.' + ext
+                pattern = os.path.join(dir_path, f"*{ext}")
+                video_files.extend(glob.glob(pattern))
+                
+            if not video_files:
+                print(f"No video files with extension(s) {extensions} found in '{dir_path}'")
+            else:
+                print(f"Found {len(video_files)} video file(s) to process")
+                for i, video_file in enumerate(video_files, 1):
+                    print(f"\nProcessing video {i}/{len(video_files)}: {os.path.basename(video_file)}")
+                    process_video(video_file)
+                    
+        elif choice == '3':
+            print("Exiting program.")
+            break
+            
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")
+
+# Main program entry point
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    video_path, _ = QFileDialog.getOpenFileName(None, "Select Video File", "", "Video Files (*.mp4 *.avi *.mov)")
-    if video_path:
-        process_video(video_path)
-    else:
-        print("No video selected.")
+    try:
+        interactive_video_selection()
+    except KeyboardInterrupt:
+        print("\nProgram interrupted by user.")
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
+    finally:
+        # Make sure resources are cleaned up even if an error occurs
+        cleanup_resources()
+        print("Program terminated.")
