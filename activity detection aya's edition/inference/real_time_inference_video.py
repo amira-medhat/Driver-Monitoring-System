@@ -146,7 +146,7 @@ class ActivityDetection(QMainWindow):
                 self.stop_event.set()
                 break
     '''
-
+    
     def capture_frames(self):
         """Capture video frames and store them in the queue while maintaining real-time speed."""
         fps = self.cap.get(cv2.CAP_PROP_FPS)  # Get original video FPS

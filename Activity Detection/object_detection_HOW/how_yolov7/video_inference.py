@@ -1,11 +1,22 @@
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
 import sys
 import os
 import cv2
 import torch
 import numpy as np
 from pathlib import Path
+<<<<<<< HEAD
+
+# Configuration
+CUSTOM_WEIGHTS_PATH = r"D:\grad project\imgClass_AD\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\best_lastTrain.pt"  # Path to trained weights file
+YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\how\yolov7"  # Path to YOLOv7 repository
+VIDEO_PATH = r"D:\GRAD_PROJECT\how\video.mp4"  # Path to the input video
+CONFIDENCE_THRESHOLD = 0.6  # Confidence threshold for detections
+=======
 import threading
 from queue import Queue
 
@@ -15,6 +26,7 @@ CUSTOM_WEIGHTS_PATH = r"C:\Users\Farah\Downloads\best (2).pt"  # Path to trained
 YOLOV7_REPO_PATH = r"D:\GRAD_PROJECT\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\yolov7"  # Path to YOLOv7 repository
 VIDEO_PATH = r"C:\Users\Farah\Desktop\nadoushy.mp4" # Path to the input video
 CONFIDENCE_THRESHOLD = 0.5  # Confidence threshold for detections
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
 
 # Check if weights file exists
 if not os.path.exists(CUSTOM_WEIGHTS_PATH):
@@ -37,14 +49,31 @@ device = select_device('cuda' if torch.cuda.is_available() else 'cpu')
 # Load YOLOv7 model
 model = torch.hub.load(YOLOV7_REPO_PATH, 'custom', CUSTOM_WEIGHTS_PATH, source='local', force_reload=True).to(device)
 model.eval()
+<<<<<<< HEAD
+=======
 if device.type != 'cpu':
     model.half()  # Convert model to FP16
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
 
 # Open video capture
 cap = cv2.VideoCapture(VIDEO_PATH)
 if not cap.isOpened():
     raise Exception("Error: Could not open video file.")
 
+<<<<<<< HEAD
+# Process video frames
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        break  # Exit loop if no more frames
+    
+    original_frame = frame.copy()
+    
+    # Preprocess the frame
+    img_resized = cv2.resize(frame, (640, 640))
+    img_tensor = torch.from_numpy(img_resized).permute(2, 0, 1).unsqueeze(0).to(device).float() / 255.0
+    
+=======
 # Set FPS to match the original video
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -80,28 +109,56 @@ while cap.isOpened():
     if device.type != 'cpu':
         img_tensor = img_tensor.half()  # Use FP16 on GPU
 
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
     # Run inference
     with torch.no_grad():
         predictions = model(img_tensor)
     
+<<<<<<< HEAD
+    # Extract detections
+    detections = predictions[0] if isinstance(predictions, (list, tuple)) else predictions
+    detections = non_max_suppression(detections, CONFIDENCE_THRESHOLD, 0.45)[0]
+=======
     # Ensure predictions are in the correct format
     if isinstance(predictions, tuple):
         predictions = predictions[0]
     
     # Extract detections
     detections = non_max_suppression(predictions, CONFIDENCE_THRESHOLD, 0.5)[0]
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
     
     # Initialize label
     label = "No Detection"
     color = (255, 255, 255)
     if detections is not None and len(detections):
+<<<<<<< HEAD
+        detections[:, :4] = scale_coords(img_tensor.shape[2:], detections[:, :4], original_frame.shape).round()
+=======
         detections[:, :4] = scale_coords(img_tensor.shape[2:], detections[:, :4], frame.shape).round()
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
         
         for *xyxy, conf, cls in detections:
             x1, y1, x2, y2 = map(int, xyxy)
             if conf < CONFIDENCE_THRESHOLD:
                 continue
             
+<<<<<<< HEAD
+            label = f"{'HandsOnWheel' if cls == 1 else 'HandsOffWheel'} {conf:.2f}"
+            color = (255, 0, 0) if cls == 1 else (0, 0, 255)
+            cv2.rectangle(original_frame, (x1, y1), (x2, y2), color, 2)
+    
+    # Display label
+    label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+    label_x = (original_frame.shape[1] - label_size[0]) // 2
+    label_y = original_frame.shape[0] - 10
+    cv2.putText(original_frame, label, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    
+    # Show the frame with detections
+    cv2.imshow("Real-Time Detection", original_frame)
+    
+    # Exit when 'q' is pressed
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+=======
             # notice that if the dataset is augmented you should check yaml and the labels
             # because roboflow flip all the labels
             # if augmented : handson -> 0 and handsoff -> 1
@@ -118,8 +175,13 @@ while cap.isOpened():
     
     # Maintain the original video FPS
     if cv2.waitKey(int(1000 / fps)) & 0xFF == ord('q'):
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
         break
 
 # Release resources
 cap.release()
+<<<<<<< HEAD
 cv2.destroyAllWindows()
+=======
+cv2.destroyAllWindows()
+>>>>>>> 9257b885dc086ce0e2c3ae0340c29ec8aa49f965
