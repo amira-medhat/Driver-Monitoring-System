@@ -33,7 +33,7 @@ def extract_frames(video_path, output_folder, frame_rate=1):
             break  # End of video
 
         if frame_count % frame_interval == 0:
-            frame_filename = os.path.join(output_folder, f"sama_{saved_frame_count:04d}.jpg")
+            frame_filename = os.path.join(output_folder, f"omar2_{saved_frame_count:04d}.jpg")
             cv2.imwrite(frame_filename, frame)
             saved_frame_count += 1
 
@@ -43,6 +43,6 @@ def extract_frames(video_path, output_folder, frame_rate=1):
     print(f"Extracted {saved_frame_count} frames and saved them in '{output_folder}'.")
 
 # Example usage
-video_path = r"C:\Users\Farah\Downloads\emotional_pics\sama.mp4" # Replace with your video file path
+video_path = r"C:\Users\Farah\Downloads\emotional_pics\new_videos\omar.mp4" # Replace with your video file path
 output_folder = r"C:\Users\Farah\Downloads\emotional_pics\output" # Replace with your desired output folder
 extract_frames(video_path, output_folder, frame_rate=10)  # Change frame_rate to control how many frames per secon

@@ -8,7 +8,7 @@ from tensorflow.keras.models import Model
 
 #  newwwwwwwwwwwwwwwwwwwwww
 # 🔹 Define paths
-weights_path = r"C:\Users\Farah\Downloads\mobilenet_emotion.weights.h5"
+weights_path = r"C:\Users\Farah\Downloads\best (1).pt"
   # Update with your actual path
 
 # 🔹 Load MobileNetV2 model architecture
@@ -44,7 +44,7 @@ while cap.isOpened():
 
     # Make prediction
     prediction = model.predict(img_array)
-    label = "Happy" if prediction[0][0] > 0.4 else "Neutral"
+    label = "Happy" if prediction[0][0] > 0.4 else "sad"
 
     # Display result
     cv2.putText(frame, f"Emotion: {label}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
