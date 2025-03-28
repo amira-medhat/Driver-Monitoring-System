@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Driver Assistant</title>
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet"/>
+
+  <!-- Lottie -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.10.2/lottie.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      height: 100vh;
+      color: #ffcdec;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+
+    #speakNow {
+      color: #ff66cc;
+      font-size: 14px;
+      margin-top: 40px;
+      height: 20px;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      animation: pulseText 1.2s infinite;
+    }
+
+    /* Show class */
+    #speakNow.show {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* Blinking animation */
+    @keyframes pulseText {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+
+    #lottie-container {
+      width: 200px;
+      height: 200px;
+      margin-bottom: 40px;
+      margin-top: -130px; 
+    }
+
+    #startBtn {
+      background-color: transparent;
+      border: 2px solid #ff66cc;
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-top: -70px;
+      font-size: 14px;
+      color: #ff66cc;
+      cursor: pointer;
+      box-shadow: 0 0 12px #ff66ccaa;
+      transition: all 0.3s ease;
+    }
+
+    #startBtn:hover {
+      background-color: #ff66cc22;
+      transform: scale(1.05);
+    }
+
+    #response {
+      margin-top: 40px;
+      font-size: 20px;
+      background-color: #ffcdec;
+      border-radius: 20px;
+      padding: 15px 30px;
+      width: 80%;
+      max-width: 600px;
+      border: 1px solid #ff66cc55;
+      box-shadow: 0 0 10px #ff66cc22;
+      color: #2c081e;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .equalizer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      height: 80px;
+      position: absolute;
+      bottom: 20px;
+    }
+
+    .bar {
+      width: 6px;
+      background: #000;
+      border-radius: 10px;
+      box-shadow: 0 0 5px #000;
+      animation: bounce 1s infinite ease-in-out;
+    }
+
+    .bar:nth-child(1) { animation-delay: 0s; }
+    .bar:nth-child(2) { animation-delay: 0.1s; }
+    .bar:nth-child(3) { animation-delay: 0.2s; }
+    .bar:nth-child(4) { animation-delay: 0.3s; }
+    .bar:nth-child(5) { animation-delay: 0.4s; }
+    .bar:nth-child(6) { animation-delay: 0.5s; }
+
+    @keyframes bounce {
+      0%, 100% { height: 10px; }
+      50% { height: 70px; }
+    }
+
+    .equalizer.hidden .bar {
+      animation: none;
+      height: 10px;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Lottie Icon -->
+  <div id="lottie-container"></div>
+
+  <!-- Equalizer -->
+  <div class="equalizer hidden" id="equalizer">
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+  </div>
+
+  <!-- Button -->
+  <button id="startBtn" title="Start Assistant">Start System</button>
+
+
+  <!-- <p id="speakNow" style="display: none; color: #ff66cc; font-size: 14px; margin-top: 40px;">🎙️ Speak now</p>-->
+  <p id="speakNow">🎙️ Speak now</p>
+
+
+
+  <!-- Assistant Response -->
+  <p id="response">System is idle...</p>
+
+  <!-- Bootstrap -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Main Script -->
+   
+  <script src="/static/script.js"></script>
+
+  <!-- Lottie Animation Load -->
+  <script>
+    const animation = lottie.loadAnimation({
+      container: document.getElementById('lottie-container'),
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      path: '/static/Animation - 1743035272967.json'
+    });
+  </script>
+</body>
+</html>
