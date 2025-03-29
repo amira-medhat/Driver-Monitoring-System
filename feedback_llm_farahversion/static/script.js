@@ -194,12 +194,12 @@ function getSafetyInstruction() {
                     console.warn("[WARN] Could not stop recognition:", e.message);
                 }
             
-                document.getElementById("response").innerText = "Dangerous";
+                document.getElementById("response").innerText = "⚠️Dangerous , driver is sleeping!";
                 document.getElementById("response").style.color = "red";
             
                 dangerousTimeout = setTimeout(() => {
                     if (currentMode === "sleep") {
-                        document.getElementById("response").innerText = "Dangerous";
+                        document.getElementById("response").innerText = "⚠️Dangerous , driver is sleeping!";
                         document.getElementById("response").style.color = "red";
                         currentMode = "monitoring";
                     }
@@ -225,8 +225,12 @@ function startListeningSleep() {
     sleepRecognizer.onresult = function (event) {
         const speech = event.results[0][0].transcript.trim();
         console.log("[DEBUG] Sleep mode heard:", speech);
+        document.getElementById("response").style.color = "#2c081e";
         document.getElementById("response").innerText = "You said: " + speech;
         speechSynthesis.speak(new SpeechSynthesisUtterance("Ok, I was just checking on you."));
+        document.getElementById("response").style.color = "#2c081e";
+        document.getElementById("response").innerText = "";
+
         clearTimeout(dangerousTimeout);
         currentMode = "monitoring";
         
