@@ -1,0 +1,9 @@
+{
+    "Activity Alert": "eating",
+    "HOW Alert": "on_wheel",
+    "Fatigue Alert": "off",
+    "Health Alert": "off",
+    "Distraction Alert": "off",
+    "Sleep Alert": false
+}
+  
