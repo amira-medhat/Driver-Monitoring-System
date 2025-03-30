@@ -22,7 +22,7 @@ def send_email():
 
     sender_email = "farahhahmed01@gmail.com"
     receiver_email = "omarrida5@gmail.com"
-    app_password = "kjkskhjxietzmvfq"  # Your Gmail App Password
+    app_password = ""  # Your Gmail App Password
     subject = "🚨 Driver Unresponsive Alert"
     body = f"""
     <html>
