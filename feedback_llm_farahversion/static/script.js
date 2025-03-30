@@ -4,6 +4,8 @@ let monitoringInterval = null;
 let recognition = null;
 let assistantTimeout = null;
 let isWakeWordActive = false;
+let noResponse = false;
+
 
 function initRecognition() {
     recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -173,6 +175,7 @@ function listenForQuestion() {
     startRecognizer();
 }
 
+
 function getSafetyInstruction() {
     if (currentMode !== "monitoring") return;
 
@@ -185,36 +188,49 @@ function getSafetyInstruction() {
 
             if (data.mode === "sleep") {
                 currentMode = "sleep";
-            
+
                 try {
-                    recognition.stop();  // 🛑 Stop wake-word recognizer
+                    recognition.stop();
                     isWakeWordActive = false;
                     console.log("[DEBUG] Wake word recognizer stopped before sleep check.");
                 } catch (e) {
                     console.warn("[WARN] Could not stop recognition:", e.message);
                 }
-            
-                document.getElementById("response").innerText = "⚠️Dangerous , driver is sleeping!";
-                document.getElementById("response").style.color = "red";
-            
+
                 dangerousTimeout = setTimeout(() => {
                     if (currentMode === "sleep") {
+                        noResponse = true;
                         document.getElementById("response").innerText = "⚠️Dangerous , driver is sleeping!";
                         document.getElementById("response").style.color = "red";
                         currentMode = "monitoring";
+
+                        if (noResponse === true) {
+                            console.log("[DEBUG] Sending alert email...");
+                            noResponse = false;
+
+                            fetch("/send_email", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    link: "https://www.youtube.com/watch?v=AbU6Bg-6y5o"
+                                })
+                            })
+                            .then(res => res.json())
+                            .then(data => console.log("[EMAIL] Response:", data))
+                            .catch(err => console.error("[EMAIL] Error:", err));
+                        }
                     }
-                }, 150000);
-            
+                }, 40000); // 40 seconds
+
                 startListeningSleep();
-            }
-            
-            else {
+            } else {
                 document.getElementById("response").innerText = "Assistant: " + data.message;
                 speechSynthesis.speak(new SpeechSynthesisUtterance(data.message));
             }
         })
         .catch(error => console.error("[ERROR] Error calling /analyze:", error));
 }
+
 
 function startListeningSleep() {
     const sleepRecognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
@@ -230,6 +246,7 @@ function startListeningSleep() {
         speechSynthesis.speak(new SpeechSynthesisUtterance("Ok, I was just checking on you."));
         document.getElementById("response").style.color = "#2c081e";
         document.getElementById("response").innerText = "";
+        noResponse = false; 
 
         clearTimeout(dangerousTimeout);
         currentMode = "monitoring";
