@@ -23,6 +23,8 @@ from geopy.geocoders import Nominatim
 from pydub import AudioSegment
 from pydub.playback import play
 import io
+import requests
+import smtplib
 
 class AppState:
     def __init__(self):
@@ -275,6 +277,24 @@ class UserManager:
 
         return False
     
+    def send_fatigue_alert_email(self, stream_url="http://your-livestream-link.com"):
+        try:
+            location = self.state.location_override or "Unknown location"
+            payload = {
+                "link": stream_url,
+                "location": location
+            }
+            response = requests.post("http://localhost:5000/send_email", json=payload)
+            print("[DEBUG] Email response:", response.status_code, response.text)
+            result = response.json()
+
+            if response.status_code == 200 and result.get("status"):
+                print("[📧] Email sent successfully.")
+            else:
+                print("[⚠️] Email failed:", result)
+        except Exception as e:
+            print("[❌] Error sending email:", str(e))
+    
     def alert(self):
         self.state.current_mode = "fatigue_alert"
         eel.DisplayMessage("Are you okay? Can you hear me?")
@@ -288,6 +308,9 @@ class UserManager:
             self.Audio.speak("Dangerous! No response from driver.")
             time.sleep(0.5)
             self.Audio.BuzzerSound()
+            time.sleep(0.5)
+            # Send email alert
+            self.send_fatigue_alert_email("https://86d1-45-240-225-244.ngrok-free.app")
             self.state.current_mode = "monitoring"
             eel.ExitHood()
             return

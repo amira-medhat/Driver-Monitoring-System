@@ -1,8 +1,8 @@
 {
     "Activity Alert": "safe driving",
     "HOW Alert": "on_wheel",
-    "Fatigue Alert": "off",
+    "Fatigue Alert": "on",
     "Health Alert": "off",
     "Distraction Alert": "off",
-    "Sleep Alert": false
+    "Sleep Alert": true
 }
