@@ -51,29 +51,61 @@ $(document).ready(function () {
         eel.set_mic_pressed(); 
     });
 
-    //settings button click event
-    $("#SettingsBtn").click(function () {
-        eel.playClickSound();
-        $("#Oval").attr("hidden", false);
-        $("#SiriWave").attr("hidden", true);
-    });
     
-    // //chat button click event
-    // $("#PlayBtn").click(function () {
-    //     eel.playClickSound();
-    //     $("#Oval").attr("hidden", false);
-    //     $("#SiriWave").attr("hidden", true);
-    //     isMonitoring = true;
-    //     eel.speak("Assistant is now in monitoring mode...")
-    //     eel.start_monitoring()();
-    // });
+    // Toggle Settings Window on Settings Button Click
+    $("#SettingsBtn").click(function () {
+        $("#SettingsWindow").fadeToggle(); // Show/hide window
+    });
 
-    // //settings button click event
-    // $("#ExitBtn").click(function () {
-    //     eel.playClickSound();
-    //     $("#Oval").attr("hidden", false);
-    //     $("#SiriWave").attr("hidden", true);
-    //     eel.speak("Assistant is exitting from mointoring mode...")
-    // });
+    // Close Settings Window
+    $("#CloseSettings").click(function () {
+        $("#SettingsWindow").fadeOut();
+    });
+
+    //Gps button click event
+    $("#GpsBtn").click(function () {
+        eel.playClickSound();
+        $("#Oval").attr("hidden",false);
+        $("#SiriWave").attr("hidden", true);
+        eel.OpenGps("gps");
+        //$("#MapScreen").attr("hidden", false);
+    });
+
+    //NEW
+    // Update button UI based on backend flag
+    function updateMonitorButtons() {
+        eel.get_monitor_mode()(function (state) {
+            if (state === "on") {
+                $("#MonitorOnBtn").addClass("selected-option");
+                $("#MonitorOffBtn").removeClass("selected-option");
+            } else {
+                $("#MonitorOffBtn").addClass("selected-option");
+                $("#MonitorOnBtn").removeClass("selected-option");
+            }
+        });
+    }
+    // Call this on load
+    $(document).ready(function () {
+        updateMonitorButtons();
+        // Start polling every 2 seconds
+        setInterval(() => {
+            updateMonitorButtons();
+        }, 2000);
+
+        $("#MonitorOnBtn").click(function () {
+            $("#Oval").attr("hidden",false);
+            $("#SiriWave").attr("hidden", true);
+            eel.Set_jason_flag(); 
+            updateMonitorButtons();
+        });
+
+        $("#MonitorOffBtn").click(function () {
+            $("#Oval").attr("hidden",false);
+            $("#SiriWave").attr("hidden", true);
+            eel.Clear_jason_flag();
+            updateMonitorButtons();
+        });
+    });
+
 
 });
