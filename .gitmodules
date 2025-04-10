@@ -1,0 +1,3 @@
+[submodule "Final merging codes with live streaming/yolov7"]
+	path = Final merging codes with live streaming/yolov7
+	url = https://github.com/username/yolov7.git
