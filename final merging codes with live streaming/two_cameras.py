@@ -44,8 +44,8 @@ class CameraStream:
 # ─────────────────────────────
 # Initialize both camera feeds
 # ─────────────────────────────
-camera1 = CameraStream(0)
-camera2 = CameraStream(1)
+camera1 = CameraStream(1)
+camera2 = CameraStream(0)
 
 # ───────────────────────────────
 # Frame Generator with FPS Logging

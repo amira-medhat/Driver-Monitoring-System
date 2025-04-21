@@ -23,7 +23,7 @@ import json
 
 torch.cuda.empty_cache()
 
-YOLOV7_REPO_PATH = r"D:\grad project\Merging_codes_live_streaming\yolov7"
+YOLOV7_REPO_PATH = r"D:\grad project\Driver-Monitoring-System\final merging codes with live streaming\yolov7"
 sys.path.append(YOLOV7_REPO_PATH)
 
 from models.experimental import attempt_load
@@ -54,7 +54,7 @@ class CustomModel(nn.Module):
 
 # Global Variables
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_path = r"D:\grad project\imgClass_AD\activity detection models\fine_tuned_mobilenetv3_with_aug_AD.pth"
+model_path = r"D:\grad project\Driver-Monitoring-System\Activity_Detection\models_weights\fine_tuned_mobilenetv3_with_aug.pth"
 labels = list(range(0, 10))
 class_labels  = {
     0: "Safe driving",
@@ -76,7 +76,7 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-weights_path = r"D:\grad project\imgClass_AD\Driver-Monitoring-System\Activity Detection\object_detection_HOW\how_yolov7\best_lastTrain.pt"
+weights_path = r"D:\grad project\Driver-Monitoring-System\Hands_Off_Wheel\how_yolov7\weights\best_lastTrain.pt"
 model_HOW = attempt_load(weights_path, map_location=device)
 print(f"Using device: {device}")
 stride = int(model_HOW.stride.max())  
@@ -485,7 +485,6 @@ class ActivityDetection(QMainWindow):
             print(f"Error in Majority_Class: {e}")
 
 if __name__ == "__main__":
-    #start_webrtc_loop()
     app = QApplication(sys.argv)
 
     video_path, _ = QFileDialog.getOpenFileName(None, "Select Video File", "", "Video Files (*.mp4 *.avi *.mov)")
