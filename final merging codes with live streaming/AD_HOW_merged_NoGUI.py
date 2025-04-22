@@ -105,7 +105,7 @@ def preprocess_HOW(frame):
     return img
 
 def capture_frames(video_path):
-    cap = cv2.VideoCapture(video_path)
+    cap = cv2.VideoCapture("http://127.0.0.1:5000/video_feed1")
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_time = 1 / fps if fps > 0 else 1 / 30  
 
@@ -247,7 +247,7 @@ def majority_class_update():
             unsafe_counter += 1
     if safe_counter > unsafe_counter:
         driver_state = "✅Safe driving"
-        confidence_text = "Good boy"
+        confidence_text = "Good job,you're driving safely"
     else:
         driver_state = "❌Unsafe driving"
         confidence_text = "⚠🚨ALERT!!! PAY ATTENTION TO THE ROAD"
@@ -299,77 +299,77 @@ def update_status_loop():
             print(f"Error in update_status_loop: {e}")
         time.sleep(0.1)
 
-# ===== Temporary Flask Web Interface =====
-# You can remove this function later if not needed.
-from flask import Flask, Response, jsonify
+# # ===== Temporary Flask Web Interface =====
+# # You can remove this function later if not needed.
+# from flask import Flask, Response, jsonify
 
-def start_flask_server():
-    app = Flask(__name__)
+# def start_flask_server():
+#     app = Flask(__name__)
 
-    @app.route('/')
-    def index():
-        # A simple HTML page that displays the video stream and the system status.
-        html = '''
-        <html>
-        <head>
-            <title>Driver Monitoring System</title>
-        </head>
-        <body>
-            <h1>Driver Monitoring System</h1>
-            <img src="/video_feed" width="640" height="480">
-            <h2>Status</h2>
-            <div id="status"></div>
-            <script>
-            function fetchStatus(){
-              fetch('/status').then(response => response.json()).then(data => {
-                document.getElementById('status').innerHTML = 
-                  '<p>Per Frame Driver Activity: ' + data.per_frame_driver_activity + '</p>' +
-                  '<p>Per Frame Hands on Wheel: ' + data.per_frame_hands_on_wheel + '</p>' +
-                  '<p>Majority Driver State: ' + data.majority_driver_state + '</p>' +
-                  '<p>System Alert: ' + data.system_alert + '</p>' +
-                  '<p>Hands Monitoring: ' + data.hands_monitoring + '</p>' +
-                  '<p>Hands Monitoring Confidence: ' + data.hands_monitoring_confidence + '</p>';
-              });
-            }
-            setInterval(fetchStatus, 1000);
-            </script>
-        </body>
-        </html>
-        '''
-        return html
+#     @app.route('/')
+#     def index():
+#         # A simple HTML page that displays the video stream and the system status.
+#         html = '''
+#         <html>
+#         <head>
+#             <title>Driver Monitoring System</title>
+#         </head>
+#         <body>
+#             <h1>Driver Monitoring System</h1>
+#             <img src="/video_feed" width="640" height="480">
+#             <h2>Status</h2>
+#             <div id="status"></div>
+#             <script>
+#             function fetchStatus(){
+#               fetch('/status').then(response => response.json()).then(data => {
+#                 document.getElementById('status').innerHTML = 
+#                   '<p>Per Frame Driver Activity: ' + data.per_frame_driver_activity + '</p>' +
+#                   '<p>Per Frame Hands on Wheel: ' + data.per_frame_hands_on_wheel + '</p>' +
+#                   '<p>Majority Driver State: ' + data.majority_driver_state + '</p>' +
+#                   '<p>System Alert: ' + data.system_alert + '</p>' +
+#                   '<p>Hands Monitoring: ' + data.hands_monitoring + '</p>' +
+#                   '<p>Hands Monitoring Confidence: ' + data.hands_monitoring_confidence + '</p>';
+#               });
+#             }
+#             setInterval(fetchStatus, 1000);
+#             </script>
+#         </body>
+#         </html>
+#         '''
+#         return html
 
-    def gen():
-        """Video streaming generator function."""
-        global latest_frame
-        while True:
-            if latest_frame is None:
-                time.sleep(0.1)
-                continue
-            ret, jpeg = cv2.imencode('.jpg', latest_frame)
-            if not ret:
-                continue
-            frame_bytes = jpeg.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-            time.sleep(0.1)
+#     def gen():
+#         """Video streaming generator function."""
+#         global latest_frame
+#         while True:
+#             if latest_frame is None:
+#                 time.sleep(0.1)
+#                 continue
+#             ret, jpeg = cv2.imencode('.jpg', latest_frame)
+#             if not ret:
+#                 continue
+#             frame_bytes = jpeg.tobytes()
+#             yield (b'--frame\r\n'
+#                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+#             time.sleep(0.1)
 
-    @app.route('/video_feed')
-    def video_feed():
-        return Response(gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
+#     @app.route('/video_feed')
+#     def video_feed():
+#         return Response(gen(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-    @app.route('/status')
-    def get_status():
-        try:
-            with open("status.json") as f:
-                data = json.load(f)
-            return jsonify(data)
-        except Exception as e:
-            return jsonify({"error": str(e)})
+#     @app.route('/status')
+#     def get_status():
+#         try:
+#             with open("status.json") as f:
+#                 data = json.load(f)
+#             return jsonify(data)
+#         except Exception as e:
+#             return jsonify({"error": str(e)})
 
-    # Start Flask (you may change the host/port as needed)
-    app.run(host='0.0.0.0', port=5000)
+#     # Start Flask (you may change the host/port as needed)
+#     app.run(host='0.0.0.0', port=5000)
 
-# ===== End of Flask Web Interface =====
+# # ===== End of Flask Web Interface =====
 
 if __name__ == "__main__":
     video_path = input("Enter the video file path (or press Enter to use the live feed URL): ")
@@ -392,10 +392,10 @@ if __name__ == "__main__":
     how_thread.start()
     status_thread.start()
 
-    # Start the Flask server in a separate thread for testing the web interface.
-    flask_thread = threading.Thread(target=start_flask_server)
-    flask_thread.daemon = True
-    flask_thread.start()
+    # # Start the Flask server in a separate thread for testing the web interface.
+    # flask_thread = threading.Thread(target=start_flask_server)
+    # flask_thread.daemon = True
+    # flask_thread.start()
 
     try:
         while True:
