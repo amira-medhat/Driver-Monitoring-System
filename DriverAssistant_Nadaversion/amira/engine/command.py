@@ -86,7 +86,7 @@ class AppState:
         self.conversation_history = []  # Stores LLM conversation context
         self.location_override = None  # Holds GPS location from frontend if available
         self.json_file_path = "data/driver_alert.json"  # Path to monitoring data
-        self.json_flag = True  # If true, JSON monitoring is enabled
+        # self.json_flag = True  # If true, JSON monitoring is enabled
 
 
 # =================== AUDIO MANAGER ===================
@@ -174,6 +174,7 @@ class LLMManager():
 
         # Initialize conversation history with system prompt
         self.state.conversation_history = [self.generate_initial_context()]
+        self.api_key = "9k740iVfiIVyrl40S04I7RDV0ffDrVO7PpG_Sya-Ywg"  # HERE API key
         
     def generate_initial_context(self):
         """
@@ -237,6 +238,50 @@ Only respond in 1–2 sentences unless instructed otherwise.
 
         return trimmed
 
+    def classify_user_intent(self, query):
+        intent_prompt = f"""
+        You are a classification engine. Do not explain or speak.
+        You're a part of driver assistance that helps drivers in Cairo, Egypt.
+
+        ONLY return a valid JSON object with these ONLY 2 elements:
+        - type: one of ["chat", "weather", "traffic", "eta", "navigate"]
+        - destination: like "Giza" or "Sheikh Zayed" or "the drive Nasr City" and if the driver means his current location make it empty like ""
+
+        Examples:
+        User: "what's the weather like in Giza?"
+        → {{ "type": "weather", "destination": "Giza" }}
+
+        User: "how’s traffic near me?"
+        → {{ "type": "traffic" }}
+
+        User: "how far is Sheikh Zayed?"
+        → {{ "type": "eta", "destination": "Sheikh Zayed" }}
+
+        User: "navigate to maadi"
+        → {{ "type": "navigate", "destination": "maadi" }}
+        
+        User: "navigate to waterway New Cairo"
+        → {{ "type": "navigate", "destination": "waterway New Cairo" }}
+
+        User: "tell me a joke"
+        → {{ "type": "chat" }}
+
+        Now classify this input:
+        "{query}"
+        Respond ONLY with JSON. No explanation.
+
+        """
+
+        try:
+            response = ollama.chat(model="llama3.2", messages=[
+                { "role": "user", "content": intent_prompt }
+            ])
+            intent_json = json.loads(response['message']['content'])
+            return intent_json
+        except Exception as e:
+            print("[ERROR] Intent classification failed:", e)
+            return { "type": "chat" }  # Fallback
+
     @eel.expose
     def PassToLlm(self):
         """
@@ -272,36 +317,47 @@ Only respond in 1–2 sentences unless instructed otherwise.
             #----------------------------Check for close gps phrases---------------------------------------
             if any(phrase in query for phrase in ["close gps", "stop gps", "turn off gps", "hide","hide gps","close map","stop map"]):
                 print("[DEBUG] closing google maps website returning to assistant home screen.")
-                self.Audio.speak("Got it !")
+                eel.DisplayMessage("Got it!")
+                self.Audio.speak("Got it!")
+                eel.DisplayMessage("Closing maps.")
+                self.Audio.speak("Closing maps.")
+                # Close maps or stop GPS tracking
                 from engine.features import CloseMaps
                 CloseMaps()
                 self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
                 eel.ExitHood()
+                eel.DisplayMessage("")
                 break
 
             # Check for open gps phrases
-            if any(phrase in query for phrase in ["open gps", "turn on gps", "open maps","open"]):
+            elif any(phrase in query for phrase in ["open gps", "turn on gps", "open maps","open"]):
                 print("[DEBUG] opening google maps website.")
                 from engine.features import OpenGps
+                eel.DisplayMessage("Got it!")
+                self.Audio.speak("Got it!")
+                eel.DisplayMessage("Opening maps.")
+                self.Audio.speak("Opening maps.")
                 OpenGps("gps")
                 self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
                 eel.ExitHood()
+                eel.DisplayMessage("")
                 break
 
             # ======================== Exit Phrases ============================
-            if any(phrase in query for phrase in ["goodbye", "bye", "thank you", "thanks", "exit", "end", "close"]):
+            elif any(phrase in query for phrase in ["goodbye", "bye", "thank you", "thanks", "exit", "end", "close"]):
                 print("[DEBUG] Switching to monitoring mode and ending chatting.")
-                eel.DisplayMessage("Goodbye driver !")
-                self.Audio.speak("Goodbye driver !")
+                eel.DisplayMessage("Goodbye driver.")
+                self.Audio.speak("Goodbye driver.")
                 self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
                 eel.ExitHood()
+                eel.DisplayMessage("")
                 break
 
             # =================== Back to Monitoring ==========================
-            if any(phrase in query for phrase in ["enable monitoring", "monitoring mode", "back to monitoring", "start monitoring", "start monitor", "enable"]):
+            elif any(phrase in query for phrase in ["enable monitoring", "monitoring mode", "back to monitoring", "start monitoring", "start monitor", "enable"]):
                 print("[DEBUG] Switching again to monitoring mode.")
                 eel.DisplayMessage("Got it!")
                 self.Audio.speak("Got it!")
@@ -309,12 +365,13 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 self.Audio.speak("Switching to monitoring mode.")
                 self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
-                self.state.json_flag = True
+                # self.state.json_flag = True
                 eel.ExitHood()
+                eel.DisplayMessage("")
                 break
 
             # =================== Disable Monitoring ==========================
-            if any(phrase in query for phrase in ["send", "text", "message", "whatsapp", "call", "voice call", "make a call", "ring"]):
+            elif any(phrase in query for phrase in ["send", "text", "message", "whatsapp", "call", "voice call", "make a call", "ring"]):
                 self.state.current_mode = "assistance"
                 is_call = any(word in query for word in ["call", "voice call", "make a call", "ring"])
                 action_type = "call" if is_call else "message"
@@ -357,8 +414,8 @@ Only respond in 1–2 sentences unless instructed otherwise.
 
                 # === MESSAGE HANDLING ===
                 else:
-                    self.Audio.speak(f"Got it. Now tell me the message to send to {name}.")
                     eel.DisplayMessage(f"Got it. Now tell me the message to send to {name}.")
+                    self.Audio.speak(f"Got it. Now tell me the message to send to {name}.")
 
                     message = "none"
                     start_time = time.time()
@@ -380,40 +437,254 @@ Only respond in 1–2 sentences unless instructed otherwise.
                     self.Audio.speak("Message sent.")
                     continue
 
-            # =================== Navigation Request ============================
-            if query.lower().startswith("navigate to"):
-                self.handle_navigation(query)
-                continue
+        
+            else:
+                # === Step 1: LLM Intent Classification ===
+                try:
+                    intent = self.classify_user_intent(query)
+                    intent_type = intent.get("type", "chat")
+                    destination = intent.get("destination", None)
+                    print(f"[DEBUG] Classified intent: {intent}")
+                    
+                    if intent_type == "eta" or "traffic":
+                        try:
+                            dest_lat, dest_lon = self.geocode_destination(destination)
+                            with open("location.json", "r") as f:
+                                loc = json.load(f)
+                                origin_lat = loc["latitude"]
+                                origin_lon = loc["longitude"]
+                            eta = self.get_route_info(origin_lat, origin_lon, dest_lat, dest_lon)
+                            eel.DisplayMessage(eta)
+                            self.Audio.speak(eta)
+                        except:
+                            self.Audio.speak("Sorry, I couldn't calculate the route.")
+                        continue
 
-            # =================== Send Other Requests to LLM ====================
-            try:
-                safe_history = self.trim_history(self.state.conversation_history)
-                response = ollama.chat(model='llama3.2', messages=safe_history)
-                llama_response = response['message']['content']
-                eel.DisplayMessage(llama_response)
-                self.Audio.speak(llama_response)
-                assistant_message = {"role": "assistant", "content": llama_response}
-                self.state.conversation_history.append(assistant_message)
+                    elif intent_type == "navigate":
+                        self.handle_navigation(destination)
+                        continue
 
-            except Exception as e:
-                print(f"[ERROR] LLM call failed: {e}")
-                eel.DisplayMessage("Sorry, I couldn't process your request.")
-                self.Audio.speak("Sorry, I couldn't process your request.")
-                time.sleep(1)
+                    elif intent_type == "chat":
+                    # === Step 3: If general chat, respond and update context ===
+                        user_msg = { "role": "user", "content": query }
+                        self.state.conversation_history.append(user_msg)
+
+                        try:
+                            trimmed_history = self.trim_history(self.state.conversation_history)
+                            chat_response = ollama.chat(model="llama3.2", messages=trimmed_history)
+                            reply = chat_response["message"]["content"]
+
+                            eel.DisplayMessage(reply)
+                            self.Audio.speak(reply)
+                            assistant_msg = { "role": "assistant", "content": reply }
+                            self.state.conversation_history.append(assistant_msg)
+
+                        except Exception as e:
+                            print(f"[ERROR] LLM call failed: {e}")
+                            eel.DisplayMessage("Sorry, I couldn't process that.")
+                            self.Audio.speak("Sorry, I couldn't process that.")
+                
+                    elif intent_type == "weather":
+                        try:
+                            if destination:
+                                lat, lon = self.geocode_destination(destination)
+                            else:
+                                with open("location.json", "r") as f:
+                                    loc = json.load(f)
+                                    lat = loc["latitude"]
+                                    lon = loc["longitude"]
+
+                            weather = self.get_weather(lat=lat, lon=lon)
+                            eel.DisplayMessage(weather)
+                            self.Audio.speak(weather)
+                        except Exception as e:
+                            print("[ERROR] Weather handling failed:", e)
+                            self.Audio.speak("Sorry, I couldn't fetch the weather right now.")
+                        continue
+
+
+                except Exception as e:
+                    print("[ERROR] Intent classification failed:", e)
+                    intent_type = "chat"
+                
+
+                
+    def geocode_destination(self, destination):
+        try:
+            print("[DEBUG] Geocoding ")
+            g = geocoder.ip('me')
+            city = g.city or "Cairo"
+            country = g.country or "Egypt"
+            url = f"https://geocode.search.hereapi.com/v1/geocode?q={destination}+{city}+{country}&apiKey={self.api_key}"
+            response = requests.get(url).json()
+            
+            if "items" not in response or not response["items"]:
+                print("[ERROR] No geocoding result returned for destination.")
+                self.Audio.speak("I couldn't find that destination. Can you try with a more specific name?")
+                return None, None
+            
+            pos = response["items"][0]["position"]
+            print(f"[DEBUG] Geocoding result: {pos}")
+            return pos["lat"], pos["lng"]
+            
+        except Exception as e:
+            print("[ERROR] Geocoding failed:", e)
+            return None, None
+
+
+    # def geocode_destination(self, destination):
+    #     try:
+    #         geolocator = Nominatim(user_agent="driver_assistant")
+    #         location = geolocator.geocode(destination + ", Egypt", timeout=10)
+
+    #         if location:
+    #             print(f"[DEBUG] Geocoded: {destination} → ({location.latitude}, {location.longitude})")
+    #             return {"lat": location.latitude, "lng": location.longitude}
+    #         else:
+    #             print("[ERROR] Could not geocode destination.")
+    #             return None
+    #     except Exception as e:
+    #         print(f"[ERROR] Forward geocoding failed: {e}")
+    #         return None
+
 
     def handle_navigation(self, query):
-        """
-        Opens Google Maps with the specified destination.
-        """
+        # Extract the destination string from the user's query.
         destination = query.lower().replace("navigate to", "").strip()
         if destination:
             eel.DisplayMessage(f"Opening directions to {destination.title()}...")
             self.Audio.speak(f"Opening directions to {destination.title()}...")
-            webbrowser.open(f"https://www.google.com/maps/dir/?api=1&destination={destination.replace(' ', '+')}")
+            
+            # Get the destination's latitude and longitude via HERE Geocoding API.
+            dest_lat, dest_lon = self.geocode_destination(destination)
+            if dest_lat is None or dest_lon is None:
+                self.Audio.speak("Sorry, I couldn't find that location.")
+                return
+            
+            # Build the Google Maps directions URL using the lat, lon coordinates.
+            map_url = f"https://www.google.com/maps/dir/?api=1&destination={dest_lat},{dest_lon}"
+            webbrowser.open(map_url)
         else:
             self.Audio.speak("Where would you like to go?")
 
+    def get_route_info(self, origin_lat, origin_lon, dest_lat, dest_lon):
+        if not all([origin_lat, origin_lon, dest_lat, dest_lon]):
+            print("[ERROR] Invalid coordinates provided.")
+            return "Location data is incomplete."
+
+        url = (
+            "https://router.hereapi.com/v8/routes?"
+            f"transportMode=car"
+            f"&routingMode=fast"  # ✅ Uses real-time traffic
+            f"&origin={origin_lat},{origin_lon}"
+            f"&destination={dest_lat},{dest_lon}"
+            f"&return=summary"
+            f"&apikey={self.api_key}"
+        )
+
+        try:
+            response = requests.get(url, timeout=10)
+            data = response.json()
+            print("[DEBUG] Full Routing API response:", json.dumps(data, indent=2))
+
+            # Safety check
+            if "routes" not in data or not data["routes"]:
+                raise ValueError("No route found")
+
+            summary = data["routes"][0]["sections"][0]["summary"]
+            duration = summary.get("duration", 0)              # total with traffic
+            base_duration = summary.get("baseDuration", 0)     # without traffic
+            distance = summary.get("length", 0)
+
+            delay = duration - base_duration
+            minutes = round(duration / 60)
+            base_minutes = round(base_duration / 60)
+            distance_km = round(distance / 1000, 1)
+
+            if delay > 60:
+                traffic_msg = f"Due to traffic, your trip is delayed by about {round(delay / 60)} minutes."
+            else:
+                traffic_msg = "Traffic conditions are normal."
+
+            return (
+                f"The estimated travel time is {minutes} minutes "
+                f"(normally {base_minutes} minutes), covering {distance_km} km. {traffic_msg}"
+            )
+
+        except Exception as e:
+            print("[ERROR] Routing failed:", e)
+            return "Sorry, I couldn't calculate the route."
+
+
+    def get_traffic_nearby(self, lat, lon):
+        url = (
+            f"https://traffic.ls.hereapi.com/traffic/6.3/flow.json?"
+            f"prox={lat},{lon},5000"
+            f"&apiKey={self.api_key}"
+        )
+        try:
+            response = requests.get(url)
+            data = response.json()
+            print("[DEBUG] Full traffic API response:", json.dumps(data, indent=2))
+
+
+            # Basic traffic condition
+            if "RWS" in data and data["RWS"]:
+                description = data["RWS"][0]["RW"][0]["FIS"][0]["FI"][0]["CF"][0]
+                speed = description.get("SU", 0)
+                free_flow_speed = description.get("FF", 0)
+
+                congestion = speed < 0.75 * free_flow_speed
+                return f"Traffic is {'heavy' if congestion else 'light'} nearby. Current speed: {int(speed)} km/h."
+            
+            if "error" in data:
+                print("[ERROR] HERE Traffic API:", data["error"])
+
+
+            return "No traffic data available."
+
+        except Exception as e:
+            print("[ERROR] Traffic API failed:", e)
+            return "Traffic information is currently unavailable."
         
+    def get_weather(self, lat=None, lon=None, location_name=None):
+        """
+        Fetches current weather from OpenWeather API by coordinates or location name.
+        """
+        OPENWEATHER_API_KEY = "0eb49539ccd61afc3946866765e1d42e"  # Replace with your real key
+
+        if lat and lon:
+            url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={OPENWEATHER_API_KEY}&units=metric"
+        elif location_name:
+            url = f"https://api.openweathermap.org/data/2.5/weather?q={location_name}&appid={OPENWEATHER_API_KEY}&units=metric"
+        else:
+            return "Location for weather not provided."
+
+        try:
+            response = requests.get(url)
+            data = response.json()
+
+            if data.get("cod") != 200:
+                print(f"[ERROR] Weather API error: {data.get('message')}")
+                return "Sorry, I couldn't fetch the weather data."
+
+            description = data["weather"][0]["description"]
+            temp = data["main"]["temp"]
+            feels_like = data["main"]["feels_like"]
+            humidity = data["main"]["humidity"]
+            city = data["name"]
+
+            weather_report = (
+                f"Current weather in {city}: {description}. "
+                f"Temperature is {temp}°C, feels like {feels_like}°C. "
+                f"Humidity is {humidity}%."
+            )
+            return weather_report
+
+        except Exception as e:
+            print("[ERROR] Weather API call failed:", e)
+            return "Weather data is currently unavailable."
+
 class UserManager:
     def __init__(self, state, Audio):
         self.state = state  # Reference to global app state
@@ -464,7 +735,7 @@ class UserManager:
                 return "none"
 
     @eel.expose
-    def ListenForWakeWord(self, wake_word="hello no"):
+    def ListenForWakeWord(self, wake_word="hey nova"):
         """
         Listens for a specific wake word. If detected, returns True.
         Otherwise, returns False.
@@ -596,32 +867,34 @@ LLM = LLMManager(state, Audio, User)
 @eel.expose
 def ReceiveLocation(lat, lon):
     """
-    Receives latitude and longitude from frontend and reverse geocodes it to a readable address.
+    Receives latitude and longitude from frontend and reverse geocodes it using geopy.Nominatim.
+    Saves full location info into a JSON file and updates assistant context.
     """
     try:
         geolocator = Nominatim(user_agent="driver_assistant")
         location = geolocator.reverse((lat, lon), language="en")
         address = location.address
-        # after getting current address put it in json file to use it later
-        # Save lat, lon, and address to a file
+
+        # Save to location.json
         with open("location.json", "w") as f:
             json.dump({
                 "latitude": lat,
                 "longitude": lon,
                 "address": address
             }, f)
+
         print(f"[📍] Precise location: {address}")
-        
         state.location_override = address
 
-        # Update the system prompt with new location
+        # Update the system prompt in conversation history
         if state.conversation_history and state.conversation_history[0]["role"] == "system":
             state.conversation_history[0] = LLM.generate_initial_context()
         else:
             print("[WARN] Couldn't update system message — history not ready.")
-        
+
     except Exception as e:
         print(f"[ERROR] Failed to reverse geocode: {e}")
+
 
 @eel.expose
 def set_mic_pressed():
@@ -629,19 +902,19 @@ def set_mic_pressed():
     Marks mic as pressed from frontend event.
     """
     state.mic_pressed = True
-@eel.expose
-def Set_jason_flag():
-    state.json_flag = True
-    Audio.speak("Monitoring is enabled.")
+# @eel.expose
+# def Set_jason_flag():
+#     state.json_flag = True
+#     Audio.speak("Monitoring is enabled.")
     
-@eel.expose
-def Clear_jason_flag():
-    state.json_flag = False
-    Audio.speak("Monitoring is disabled.")
+# @eel.expose
+# def Clear_jason_flag():
+#     state.json_flag = False
+#     Audio.speak("Monitoring is disabled.")
 
-@eel.expose
-def get_monitor_mode():
-    return "on" if state.json_flag else "off"
+# @eel.expose
+# def get_monitor_mode():
+#     return "on" if state.json_flag else "off"
 
 @eel.expose
 def monitoring_loop():
@@ -666,6 +939,7 @@ def monitoring_loop():
 
         # If mic was pressed or wake word heard while monitoring → switch to assistance mode
         if state.mic_pressed or (state.current_mode == "monitoring" and User.ListenForWakeWord()):
+            eel.DisplayMessage("")
             state.current_mode = "assistance"
             eel.ShowHood()  # Show assistant UI
             LLM.PassToLlm()  # Start listening to driver
@@ -678,8 +952,8 @@ def monitoring_loop():
             continue
 
         # Normal passive monitoring logic when user hasn’t triggered assistant
-        if state.current_mode == "monitoring" and not state.mic_pressed and state.json_flag:
-            print(f"[DEBUG] json flag: {state.json_flag}")
+        if state.current_mode == "monitoring" and not state.mic_pressed:
+            # print(f"[DEBUG] json flag: {state.json_flag}")
 
             # Re-read the JSON to get the most updated status
             if os.path.exists(state.json_file_path):
@@ -706,7 +980,7 @@ def monitoring_loop():
                             continue
 
                         # Otherwise, send a summarized prompt to LLM for polite safety tip
-                        json_alert = json.dumps(data, indent=2)  # Pretty format JSON
+                        # json_alert = json.dumps(data, indent=2)  # Pretty format JSON
                         prompt = (
                             f"Driver activity: {action}. "
                             f"Distraction alert: {distraction}. "
@@ -723,7 +997,7 @@ def monitoring_loop():
                             reply = response['message']['content']
 
                             print(f"[LLM] Assistant response: {reply}")
-                            eel.DisplayMessage(reply)  # Show on frontend
+                            # eel.DisplayMessage(reply)  # Show on frontend
                             Audio.speak(reply)         # Say it aloud
 
                         except Exception as e:
