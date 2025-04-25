@@ -331,7 +331,7 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 break
 
             # Check for open gps phrases
-            elif any(phrase in query for phrase in ["open gps", "turn on gps", "open maps","open"]):
+            if any(phrase in query for phrase in ["open gps", "turn on gps", "open maps","open"]):
                 print("[DEBUG] opening google maps website.")
                 from engine.features import OpenGps
                 eel.DisplayMessage("Got it!")
@@ -346,7 +346,7 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 break
 
             # ======================== Exit Phrases ============================
-            elif any(phrase in query for phrase in ["goodbye", "bye", "thank you", "thanks", "exit", "end", "close"]):
+            if any(phrase in query for phrase in ["goodbye", "bye", "thank you", "thanks", "exit", "end", "close"]):
                 print("[DEBUG] Switching to monitoring mode and ending chatting.")
                 eel.DisplayMessage("Goodbye driver.")
                 self.Audio.speak("Goodbye driver.")
@@ -357,7 +357,7 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 break
 
             # =================== Back to Monitoring ==========================
-            elif any(phrase in query for phrase in ["enable monitoring", "monitoring mode", "back to monitoring", "start monitoring", "start monitor", "enable"]):
+            if any(phrase in query for phrase in ["enable monitoring", "monitoring mode", "back to monitoring", "start monitoring", "start monitor", "enable"]):
                 print("[DEBUG] Switching again to monitoring mode.")
                 eel.DisplayMessage("Got it!")
                 self.Audio.speak("Got it!")
@@ -370,8 +370,8 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 eel.DisplayMessage("")
                 break
 
-            # =================== Disable Monitoring ==========================
-            elif any(phrase in query for phrase in ["send", "text", "message", "whatsapp", "call", "voice call", "make a call", "ring"]):
+            # =================== chat or call with someone ==========================
+            if any(phrase in query for phrase in ["send", "text", "message", "whatsapp", "call", "voice call", "make a call", "ring"]):
                 self.state.current_mode = "assistance"
                 is_call = any(word in query for word in ["call", "voice call", "make a call", "ring"])
                 action_type = "call" if is_call else "message"
@@ -438,74 +438,63 @@ Only respond in 1–2 sentences unless instructed otherwise.
                     continue
 
         
-            else:
-                # === Step 1: LLM Intent Classification ===
+            # =================== Weather or Navigation based on Keywords ==========================
+            if any(word in query.lower() for word in ["weather"]):
                 try:
-                    intent = self.classify_user_intent(query)
-                    intent_type = intent.get("type", "chat")
-                    destination = intent.get("destination", None)
-                    print(f"[DEBUG] Classified intent: {intent}")
-                    
-                    if intent_type == "eta" or "traffic":
-                        try:
-                            dest_lat, dest_lon = self.geocode_destination(destination)
-                            with open("location.json", "r") as f:
-                                loc = json.load(f)
-                                origin_lat = loc["latitude"]
-                                origin_lon = loc["longitude"]
-                            eta = self.get_route_info(origin_lat, origin_lon, dest_lat, dest_lon)
-                            eel.DisplayMessage(eta)
-                            self.Audio.speak(eta)
-                        except:
-                            self.Audio.speak("Sorry, I couldn't calculate the route.")
-                        continue
+                    if destination:
+                        lat, lon = self.geocode_destination(destination)
+                    else:
+                        with open("location.json", "r") as f:
+                            loc = json.load(f)
+                            lat = loc["latitude"]
+                            lon = loc["longitude"]
 
-                    elif intent_type == "navigate":
-                        self.handle_navigation(destination)
-                        continue
-
-                    elif intent_type == "chat":
-                    # === Step 3: If general chat, respond and update context ===
-                        user_msg = { "role": "user", "content": query }
-                        self.state.conversation_history.append(user_msg)
-
-                        try:
-                            trimmed_history = self.trim_history(self.state.conversation_history)
-                            chat_response = ollama.chat(model="llama3.2", messages=trimmed_history)
-                            reply = chat_response["message"]["content"]
-
-                            eel.DisplayMessage(reply)
-                            self.Audio.speak(reply)
-                            assistant_msg = { "role": "assistant", "content": reply }
-                            self.state.conversation_history.append(assistant_msg)
-
-                        except Exception as e:
-                            print(f"[ERROR] LLM call failed: {e}")
-                            eel.DisplayMessage("Sorry, I couldn't process that.")
-                            self.Audio.speak("Sorry, I couldn't process that.")
-                
-                    elif intent_type == "weather":
-                        try:
-                            if destination:
-                                lat, lon = self.geocode_destination(destination)
-                            else:
-                                with open("location.json", "r") as f:
-                                    loc = json.load(f)
-                                    lat = loc["latitude"]
-                                    lon = loc["longitude"]
-
-                            weather = self.get_weather(lat=lat, lon=lon)
-                            eel.DisplayMessage(weather)
-                            self.Audio.speak(weather)
-                        except Exception as e:
-                            print("[ERROR] Weather handling failed:", e)
-                            self.Audio.speak("Sorry, I couldn't fetch the weather right now.")
-                        continue
-
-
+                    weather = self.get_weather(lat=lat, lon=lon)
+                    eel.DisplayMessage(weather)
+                    self.Audio.speak(weather)
                 except Exception as e:
-                    print("[ERROR] Intent classification failed:", e)
-                    intent_type = "chat"
+                    print("[ERROR] Weather handling failed:", e)
+                    self.Audio.speak("Sorry, I couldn't fetch the weather right now.")
+                continue
+
+            if any(word in query.lower() for word in ["destination", "location", "where"]):
+                try:
+                    dest_lat, dest_lon = self.geocode_destination(query)  # use query, not destination
+                    with open("location.json", "r") as f:
+                        loc = json.load(f)
+                        origin_lat = loc["latitude"]
+                        origin_lon = loc["longitude"]
+                    eta = self.get_route_info(origin_lat, origin_lon, dest_lat, dest_lon)
+                    eel.DisplayMessage(eta)
+                    self.Audio.speak(eta)
+                except Exception as e:
+                    print("[ERROR] Destination handling failed:", e)
+                    self.Audio.speak("Sorry, I couldn't calculate the route.")
+                continue
+
+
+            # --------------- OTHERWISE: General Chat with LLM (Ollama) --------------------
+
+            try:
+                user_msg = {"role": "user", "content": query}
+                self.state.conversation_history.append(user_msg)
+
+                trimmed_history = self.trim_history(self.state.conversation_history)
+                chat_response = ollama.chat(model="llama3.2", messages=trimmed_history)
+                reply = chat_response["message"]["content"]
+
+                eel.DisplayMessage(reply)
+                self.Audio.speak(reply)
+
+                assistant_msg = {"role": "assistant", "content": reply}
+                self.state.conversation_history.append(assistant_msg)
+
+            except Exception as e:
+                print(f"[ERROR] LLM chat failed: {e}")
+                eel.DisplayMessage("Sorry, I couldn't process that.")
+                self.Audio.speak("Sorry, I couldn't process that.")
+
+
                 
 
                 
@@ -735,7 +724,7 @@ class UserManager:
                 return "none"
 
     @eel.expose
-    def ListenForWakeWord(self, wake_word="hey nova"):
+    def ListenForWakeWord(self, wake_word="hello no"):
         """
         Listens for a specific wake word. If detected, returns True.
         Otherwise, returns False.
