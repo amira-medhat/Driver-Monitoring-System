@@ -439,11 +439,14 @@ Only respond in 1–2 sentences unless instructed otherwise.
 
         
             # =================== Weather or Navigation based on Keywords ==========================
-            if any(word in query.lower() for word in ["weather"]):
+            if any(word in query.lower() for word in ["weather", "temperature", "forecast"]):
                 try:
-                    if destination:
-                        lat, lon = self.geocode_destination(destination)
+                    location_keywords = ["cairo", "paris", "alexandria", "new york", "tokyo", "london", "giza"]
+                    
+                    if any(city in query.lower() for city in location_keywords):
+                        lat, lon = self.geocode_destination(query)
                     else:
+                        # No city detected, fallback to current location
                         with open("location.json", "r") as f:
                             loc = json.load(f)
                             lat = loc["latitude"]
@@ -452,10 +455,12 @@ Only respond in 1–2 sentences unless instructed otherwise.
                     weather = self.get_weather(lat=lat, lon=lon)
                     eel.DisplayMessage(weather)
                     self.Audio.speak(weather)
+
                 except Exception as e:
                     print("[ERROR] Weather handling failed:", e)
                     self.Audio.speak("Sorry, I couldn't fetch the weather right now.")
                 continue
+
 
             if any(word in query.lower() for word in ["destination", "location", "where"]):
                 try:
