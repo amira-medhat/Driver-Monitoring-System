@@ -1,7 +1,8 @@
 $(document).ready(function () {
 
-    let isMonitoring = false;  //Global flag to check if the assistant is in monitoring mode
+    let isMonitoring = false;  // Global flag to check if the assistant is in monitoring mode
 
+    // --- Text animation for assistant messages ---
     $('.text').textillate({
         loop: true,
         sync: true,
@@ -11,10 +12,9 @@ $(document).ready(function () {
         out: {
             effect: "fadeOutUp",
         },
-
     });
 
-    //siriwave configuration
+    // --- SiriWave configuration ---
     var siriWave = new SiriWave({
         container: document.getElementById("siri-container"),
         width: 800,
@@ -24,9 +24,9 @@ $(document).ready(function () {
         speed: 0.2,
         amplitude: 1,
         autostart: true
-      });
+    });
 
-    //siri message animation
+    // --- Siri Message Animation ---
     $('.siri-message').textillate({
         loop: true,
         sync: true,
@@ -38,44 +38,40 @@ $(document).ready(function () {
             effect: "fadeOutUp",
             sync: true,
         },
-
     });
 
-    //mic button click event
+    // --- Mic Button Click Event ---
     $("#MicBtn").click(function () {
         eel.playClickSound();
         $("#Oval").attr("hidden", true);
         $("#SiriWave").attr("hidden", false);
-        
-        // Tell Python that the mic button was clicked
-        eel.set_mic_pressed(); 
+        eel.set_mic_pressed();  // Notify Python that mic button was pressed
     });
 
-    
-    // Toggle Settings Window on Settings Button Click
+    // --- Settings Button Click Event ---
     $("#SettingsBtn").click(function () {
-        $("#SettingsWindow").fadeToggle(); // Show/hide window
+        $("#SettingsWindow").fadeToggle(); // Toggle Settings window
     });
 
-    // Close Settings Window
+    // --- Close Settings Button Click Event ---
     $("#CloseSettings").click(function () {
         $("#SettingsWindow").fadeOut();
     });
 
-    //Gps button click event
+    // --- GPS Button Click Event ---
     $("#GpsBtn").click(function () {
         eel.playClickSound();
-        $("#Oval").attr("hidden",false);
+        $("#Oval").attr("hidden", false);
         $("#SiriWave").attr("hidden", true);
         eel.OpenGps("gps");
-        //$("#MapScreen").attr("hidden", false);
     });
 
-    //NEW
-    // Update button UI based on backend flag
+    // --- Monitor ON/OFF Buttons ---
+
+    // Function to update UI buttons based on backend state
     function updateMonitorButtons() {
-        eel.get_monitor_mode()(function (state) {
-            if (state === "on") {
+        eel.get_monitor_mode()(function (mode) {
+            if (mode === "on") {
                 $("#MonitorOnBtn").addClass("selected-option");
                 $("#MonitorOffBtn").removeClass("selected-option");
             } else {
@@ -84,28 +80,36 @@ $(document).ready(function () {
             }
         });
     }
-    // Call this on load
-    $(document).ready(function () {
+
+    // Monitor ON button click
+    $("#MonitorOnBtn").click(function () {
+        $("#Oval").attr("hidden", false);
+        $("#SiriWave").attr("hidden", true);
+        eel.set_monitoring_state("monitoring");  // New backend function
         updateMonitorButtons();
-        // Start polling every 2 seconds
-        setInterval(() => {
-            updateMonitorButtons();
-        }, 2000);
-
-        $("#MonitorOnBtn").click(function () {
-            $("#Oval").attr("hidden",false);
-            $("#SiriWave").attr("hidden", true);
-            eel.Set_jason_flag(); 
-            updateMonitorButtons();
-        });
-
-        $("#MonitorOffBtn").click(function () {
-            $("#Oval").attr("hidden",false);
-            $("#SiriWave").attr("hidden", true);
-            eel.Clear_jason_flag();
-            updateMonitorButtons();
-        });
     });
 
+    // Monitor OFF button click
+    $("#MonitorOffBtn").click(function () {
+        $("#Oval").attr("hidden", false);
+        $("#SiriWave").attr("hidden", true);
+        eel.set_monitoring_state("idle");  // New backend function
+        updateMonitorButtons();
+    });
 
+    // --- Initialize Monitor Button state on page load ---
+    updateMonitorButtons();
+    setInterval(updateMonitorButtons, 2000);  // Poll every 2 seconds
+
+});
+
+// Instructions Button Click
+$("#InstructionsBtn").click(function () {
+    $("#SettingsWindow").fadeOut();        // Hide Settings window
+    $("#InstructionsWindow").fadeToggle(); // Toggle Instructions window
+});
+
+// Close Instructions Window
+$("#CloseInstructionsBtn").click(function () {
+    $("#InstructionsWindow").fadeOut();
 });

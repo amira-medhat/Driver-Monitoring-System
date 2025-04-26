@@ -356,9 +356,24 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 eel.DisplayMessage("")
                 break
 
-            # =================== Back to Monitoring ==========================
+            # =================== enable Monitoring ==========================
             if any(phrase in query for phrase in ["enable monitoring", "monitoring mode", "back to monitoring", "start monitoring", "start monitor", "enable"]):
                 print("[DEBUG] Switching again to monitoring mode.")
+                eel.DisplayMessage("Got it!")
+                self.Audio.speak("Got it!")
+                eel.DisplayMessage("Switching to monitoring mode.")
+                self.Audio.speak("Switching to monitoring mode.")
+                self.state.current_mode = "monitoring"
+                self.state.mic_pressed = False
+                # self.state.json_flag = True
+                eel.ExitHood()
+                eel.DisplayMessage("")
+                break
+
+
+            # =================== disable Monitoring ==========================
+            if any(phrase in query for phrase in ["disable monitoring", "off monitoring", "end monitoring", "disable"]):
+                print("[DEBUG] Switching again to monitoring mode.") 
                 eel.DisplayMessage("Got it!")
                 self.Audio.speak("Got it!")
                 eel.DisplayMessage("Switching to monitoring mode.")

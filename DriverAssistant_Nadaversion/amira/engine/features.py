@@ -12,6 +12,8 @@ import webbrowser  # For opening URLs
 from urllib.parse import quote  # For encoding URLs/messages
 from engine.command import AudioManager  # Custom audio manager for voice feedback
 import json
+from engine.command import state
+
 
 
 # ===================== UI Audio Feedback Functions =====================
@@ -132,3 +134,11 @@ def CloseMaps():
     except Exception as e:
         print(f"[Error closing maps]: {e}")
         audio.speak("Couldn't close Google Maps.")
+
+@eel.expose
+def set_monitoring_state(state_value):
+    state.current_mode = state_value
+
+@eel.expose
+def get_monitor_mode():
+    return "on" if state.current_mode == "monitoring" else "off"
