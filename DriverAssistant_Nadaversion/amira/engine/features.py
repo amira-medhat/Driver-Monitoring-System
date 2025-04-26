@@ -13,6 +13,7 @@ from urllib.parse import quote  # For encoding URLs/messages
 from engine.command import AudioManager  # Custom audio manager for voice feedback
 import json
 from engine.command import state
+from engine.command import action_flag
 
 
 
@@ -141,4 +142,7 @@ def set_monitoring_state(state_value):
 
 @eel.expose
 def get_monitor_mode():
-    return "on" if state.current_mode == "monitoring" else "off"
+    if state.current_mode == "monitoring":
+        return "on"
+    else:
+        return "off"

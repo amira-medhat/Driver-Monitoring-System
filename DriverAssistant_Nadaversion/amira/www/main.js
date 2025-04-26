@@ -113,3 +113,14 @@ $("#InstructionsBtn").click(function () {
 $("#CloseInstructionsBtn").click(function () {
     $("#InstructionsWindow").fadeOut();
 });
+
+eel.expose(selectMonitorOnButton);
+function selectMonitorOnButton(flag) {
+    if (flag == true) {
+        $("#MonitorOnBtn").addClass("selected-option");
+        $("#MonitorOffBtn").removeClass("selected-option");
+    } else {
+        $("#MonitorOffBtn").addClass("selected-option");
+        $("#MonitorOnBtn").removeClass("selected-option");
+    }
+}

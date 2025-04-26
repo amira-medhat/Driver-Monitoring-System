@@ -76,6 +76,8 @@ from config import *
 
 # =================== APP STATE ===================
 
+action_flag = True
+
 class AppState:
     """
     Holds the global state of the assistant application.
@@ -86,7 +88,6 @@ class AppState:
         self.conversation_history = []  # Stores LLM conversation context
         self.location_override = None  # Holds GPS location from frontend if available
         self.json_file_path = "data/driver_alert.json"  # Path to monitoring data
-        # self.json_flag = True  # If true, JSON monitoring is enabled
 
 
 # =================== AUDIO MANAGER ===================
@@ -365,7 +366,8 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 self.Audio.speak("Switching to monitoring mode.")
                 self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
-                # self.state.json_flag = True
+                action_flag=True
+                eel.selectMonitorOnButton(action_flag)
                 eel.ExitHood()
                 eel.DisplayMessage("")
                 break
@@ -373,14 +375,15 @@ Only respond in 1–2 sentences unless instructed otherwise.
 
             # =================== disable Monitoring ==========================
             if any(phrase in query for phrase in ["disable monitoring", "off monitoring", "end monitoring", "disable"]):
-                print("[DEBUG] Switching again to monitoring mode.") 
+                print("[DEBUG] Switching again to idle mode.") 
                 eel.DisplayMessage("Got it!")
                 self.Audio.speak("Got it!")
-                eel.DisplayMessage("Switching to monitoring mode.")
-                self.Audio.speak("Switching to monitoring mode.")
-                self.state.current_mode = "monitoring"
+                eel.DisplayMessage("Monitoring is disabled")
+                self.Audio.speak("Monitoring is disabled")
+                self.state.current_mode = "assistance"
                 self.state.mic_pressed = False
-                # self.state.json_flag = True
+                action_flag=False
+                eel.selectMonitorOnButton(action_flag)
                 eel.ExitHood()
                 eel.DisplayMessage("")
                 break
