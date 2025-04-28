@@ -76,7 +76,7 @@ from config import *
 
 # =================== APP STATE ===================
 
-action_flag = True
+
 
 class AppState:
     """
@@ -88,6 +88,8 @@ class AppState:
         self.conversation_history = []  # Stores LLM conversation context
         self.location_override = None  # Holds GPS location from frontend if available
         self.json_file_path = "data/driver_alert.json"  # Path to monitoring data
+        self.json_flag = True
+        self.speak_flag=True
 
 
 # =================== AUDIO MANAGER ===================
@@ -366,8 +368,9 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 self.Audio.speak("Switching to monitoring mode.")
                 self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
-                action_flag=True
-                eel.selectMonitorOnButton(action_flag)
+                self.state.speak_flag=True
+                self.state.json_flag=True
+                print(f"[DEBUG] speak flag: {self.state.speak_flag}")
                 eel.ExitHood()
                 eel.DisplayMessage("")
                 break
@@ -379,11 +382,12 @@ Only respond in 1–2 sentences unless instructed otherwise.
                 eel.DisplayMessage("Got it!")
                 self.Audio.speak("Got it!")
                 eel.DisplayMessage("Monitoring is disabled")
-                self.Audio.speak("Monitoring is disabled")
-                self.state.current_mode = "assistance"
+                self.Audio.speak("Monitoring is disableds")
+                self.state.current_mode = "monitoring"
                 self.state.mic_pressed = False
-                action_flag=False
-                eel.selectMonitorOnButton(action_flag)
+                self.state.speak_flag=False
+                print(f"[DEBUG] speak flag: {self.state.speak_flag}")
+                eel.updateMonitorBtnSpeak(False)
                 eel.ExitHood()
                 eel.DisplayMessage("")
                 break
@@ -544,20 +548,6 @@ Only respond in 1–2 sentences unless instructed otherwise.
             return None, None
 
 
-    # def geocode_destination(self, destination):
-    #     try:
-    #         geolocator = Nominatim(user_agent="driver_assistant")
-    #         location = geolocator.geocode(destination + ", Egypt", timeout=10)
-
-    #         if location:
-    #             print(f"[DEBUG] Geocoded: {destination} → ({location.latitude}, {location.longitude})")
-    #             return {"lat": location.latitude, "lng": location.longitude}
-    #         else:
-    #             print("[ERROR] Could not geocode destination.")
-    #             return None
-    #     except Exception as e:
-    #         print(f"[ERROR] Forward geocoding failed: {e}")
-    #         return None
 
 
     def handle_navigation(self, query):
@@ -914,19 +904,26 @@ def set_mic_pressed():
     Marks mic as pressed from frontend event.
     """
     state.mic_pressed = True
-# @eel.expose
-# def Set_jason_flag():
-#     state.json_flag = True
-#     Audio.speak("Monitoring is enabled.")
-    
-# @eel.expose
-# def Clear_jason_flag():
-#     state.json_flag = False
-#     Audio.speak("Monitoring is disabled.")
 
-# @eel.expose
-# def get_monitor_mode():
-#     return "on" if state.json_flag else "off"
+# this is for disable and enable manually
+@eel.expose
+def Set_jason_flag():
+    state.json_flag = True
+    state.speak_flag=True
+    Audio.speak("Monitoring is enabled.")
+    
+@eel.expose
+def Clear_jason_flag():
+    state.json_flag = False
+    Audio.speak("Monitoring is disabled.")
+
+@eel.expose
+def get_monitor_mode():
+    return "on" if state.json_flag else "off"
+
+
+
+
 
 @eel.expose
 def monitoring_loop():
@@ -963,9 +960,11 @@ def monitoring_loop():
             LLM.PassToLlm()
             continue
 
-        # Normal passive monitoring logic when user hasn’t triggered assistant
-        if state.current_mode == "monitoring" and not state.mic_pressed:
-            # print(f"[DEBUG] json flag: {state.json_flag}")
+
+        eel.updatebtns(state.json_flag, state.speak_flag)
+        if state.current_mode == "monitoring" and not state.mic_pressed and (state.json_flag and state.speak_flag):
+            print(f"[DEBUG] json flag: {state.json_flag}")
+            print(f"[DEBUG] speak flag: {state.speak_flag}")
 
             # Re-read the JSON to get the most updated status
             if os.path.exists(state.json_file_path):
@@ -1017,6 +1016,11 @@ def monitoring_loop():
                             print(f"[ERROR] LLM failed during monitoring: {e}")
                             eel.DisplayMessage("Error analyzing driver alert data.")
                             Audio.speak("Error analyzing driver alert data.")
+        else:
+            print(" ehna fl else")
+            print(f"[DEBUG] json flag: {state.json_flag}")
+            print(f"[DEBUG] speak flag: {state.speak_flag}")
+            continue
 
         # Wait a short time before next loop
         time.sleep(0.1)

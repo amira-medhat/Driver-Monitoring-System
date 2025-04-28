@@ -13,7 +13,7 @@ from urllib.parse import quote  # For encoding URLs/messages
 from engine.command import AudioManager  # Custom audio manager for voice feedback
 import json
 from engine.command import state
-from engine.command import action_flag
+
 
 
 
@@ -82,7 +82,7 @@ def send_whatsApp_msg(mobile_no, message, flag, name):
 
     elif flag == 'call':
         pyautogui.click(x=1807, y=114)  # Voice call button (adjust coordinates if needed)
-        time.sleep(20)  # Wait for 50 seconds
+        time.sleep(7)  # Wait for 50 seconds
         pyautogui.hotkey('alt', 'f4')  # Close the window after the call
 
     else:
@@ -136,13 +136,9 @@ def CloseMaps():
         print(f"[Error closing maps]: {e}")
         audio.speak("Couldn't close Google Maps.")
 
-@eel.expose
-def set_monitoring_state(state_value):
-    state.current_mode = state_value
 
-@eel.expose
-def get_monitor_mode():
-    if state.current_mode == "monitoring":
-        return "on"
-    else:
-        return "off"
+
+
+
+
+
