@@ -12,11 +12,13 @@ Debugger.log = function (message) {
 	}
 }
 
-function windowLoadHandler() {
+function windowLoadHandler() 
+{
 	canvasApp();
 }
 
-function canvasSupport() {
+function canvasSupport() 
+{
 	return Modernizr.canvas;
 }
 
@@ -350,3 +352,5 @@ $(function () {
 		}
 	});
 });
+
+

@@ -54,12 +54,10 @@
                 <div class="col-md-12 mt-4 pt-4">
                     <div class="text-center">
                         <div id="TextInput" class="d-flex">
-                            <!--<input type="text" class="input-field" name="chatbox" id="chatbox" placeholder="Type here..."> -->
                             <button id="MicBtn" class="glow-on-hover"><i class="bi bi-mic"></i></button>
-                            <!--<button id="PlayBtn" class="glow-on-hover"><i class="bi bi-play"></i></button>-->
-                            <!--<button id="ExitBtn" class="glow-on-hover"><i class="bi bi-x-circle"></i></button>-->
                             <button id="GpsBtn" class="glow-on-hover"><i class="bi bi-geo-alt"></i></button>
                             <button id="SettingsBtn" class="glow-on-hover"><i class="bi bi-gear"></i></button>
+                            <button id="InstructionsBtn" class="glow-on-hover"><i class="bi bi-info-circle"></i></button>
                             
 
                         </div>
@@ -73,8 +71,50 @@
                         <button id="MonitorOffBtn" class="btn btn-sm btn-outline-light m-1" title="Monitor Off"><i class="bi bi-shield-x"></i></button>
                         <br>
                         <button class="btn btn-sm btn-danger mt-2" id="CloseSettings">Close</button>
+                        
+
                     </div>
                 </div>
+                <!-- Instructions Window (Initially hidden) -->
+                <!-- Instructions Window (Fixed at Top Left, Opaque, Scrollable) -->
+                <div id="InstructionsWindow" class="card text-left p-3" style="width: 320px; height: 400px; position: absolute; top: 20px; right: 20px; z-index: 1000; background-color: #111; color: white; border: 2px solid #5bc0de; display: none; overflow-y: auto; border-radius: 10px;">
+                    <h5 style="color: #3399ff;">System Overview:</h5>
+                    <ul style="padding-left: 20px; font-size: 14px;">
+                        <li>🛻 After turning on your car engine, Nova automatically enters <b>Monitoring Mode</b>.</li>
+                        <li>🧠 In Monitoring Mode, Nova continuously checks your:
+                            <ul>
+                                <li>Driver Activity</li>
+                                <li>Fatigue and Drowsiness</li>
+                                <li>Distraction and Sleepiness</li>
+                                <li>Hands on the Steering Wheel</li>
+                            </ul>
+                            and gives you live safety feedback and driving suggestions.
+                        </li>
+                        <li>🛑 To <b>Disable Monitoring</b>:
+                            <ul>
+                                <li>Say "<b>Disable Monitoring</b>".</li>
+                                <li>Or open <b>Settings</b> and press the <b>Disable</b> button.</li>
+                            </ul>
+                        </li>
+                        <li>🟢 To <b>Enable Monitoring</b> again:
+                            <ul>
+                                <li>Say "<b>Enable Monitoring</b>".</li>
+                                <li>Or open <b>Settings</b> and press the <b>Enable</b> button.</li>
+                            </ul>
+                        </li>
+                        <li>🎙️ To talk to Nova:
+                            <ul>
+                                <li>Say the wake-up word "<b>Hey Nova</b>" or "<b>Hello Nova</b>".</li>
+                                <li>Or press the <b>Mic Button</b> manually.</li>
+                            </ul>
+                        </li>
+                        <li>⏳ Nova will terminate the listening session if you do not respond within <b>1 minute</b>.</li>
+                        <li>🗺️ Press the <b>GPS Button</b> to locate your current position on Google Maps.</li>
+                        <li>💬 You can ask Nova about anything, including navigation help or general questions!</li>
+                    </ul>
+                    <button id="CloseInstructionsBtn" class="btn btn-sm btn-danger mt-2">Close</button>
+                </div>
+
 
 
             </div>
