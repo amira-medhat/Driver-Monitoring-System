@@ -101,7 +101,7 @@ def preprocess_HOW(frame):
     return img
 
 def capture_frames(video_path):
-    cap = cv2.VideoCapture("http://127.0.0.1:5000/video_feed1")
+    cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_time = 1 / fps if fps > 0 else 1 / 30  
 
